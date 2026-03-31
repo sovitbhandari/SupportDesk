@@ -12,6 +12,9 @@
     "db:migrate": "npm --workspace @zendesk-lite/db run migrate",
     "db:seed": "npm --workspace @zendesk-lite/db run seed",
     "db:verify-isolation": "npm --workspace @zendesk-lite/db run verify:isolation",
-    "db:rollback": "npm --workspace @zendesk-lite/db run rollback"
+    "db:rollback": "npm --workspace @zendesk-lite/db run rollback",
+    "api:dev": "npm --workspace @zendesk-lite/backend run dev",
+    "api:start": "npm --workspace @zendesk-lite/backend run start",
+    "api:typecheck": "npm --workspace @zendesk-lite/backend run typecheck"
   }
 }
