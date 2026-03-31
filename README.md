@@ -1,11 +1,12 @@
 # Zendesk-Lite Monorepo
 
 Sprint 1 delivers the multi-tenant data foundation for the customer support platform.
+Sprint 2 adds the core backend API with JWT auth, RBAC, and Zod validation.
 
 ## Monorepo Structure
 
 - `apps/frontend` - frontend app placeholder
-- `apps/backend` - backend service placeholder
+- `apps/backend` - Express TypeScript REST API (Sprint 2)
 - `packages/db` - PostgreSQL schema, migrations, seed, and isolation verification scripts
 - `docs/database-schema.md` - schema and RLS documentation
 
@@ -62,6 +63,26 @@ Expected verification output:
 - **Migration ledger:** `schema_migrations` table is managed by `packages/db/src/scripts/migrate.ts` to ensure each migration runs once.
 - **Rollback support:** `packages/db/migrations/999_rollback_sprint1.sql` and `npm run db:rollback` provide a clean reset path for local/dev recovery.
 - **CI isolation gate:** `.github/workflows/db-isolation.yml` runs migrate + seed + isolation verification on every push and pull request.
+
+## Backend API (Sprint 2)
+
+1. Start API:
+
+   ```bash
+   npm run api:start
+   ```
+
+2. Dev mode with watch:
+
+   ```bash
+   npm run api:dev
+   ```
+
+3. Type-check API:
+
+   ```bash
+   npm run api:typecheck
+   ```
 
 ## Acceptance Criteria Mapping
 
