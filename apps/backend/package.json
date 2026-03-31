@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start:worker": "tsx src/worker.ts",
+    "dev:worker": "tsx watch src/worker.ts",
+    "smoke:sprint3": "tsx src/scripts/sprint3Smoke.ts"
   },
   "dependencies": {
     "dotenv": "latest",
@@ -15,7 +18,9 @@
     "pg": "latest",
     "zod": "latest",
     "helmet": "latest",
-    "cors": "latest"
+    "cors": "latest",
+    "bullmq": "latest",
+    "ioredis": "latest"
   },
   "devDependencies": {
     "tsx": "latest",
