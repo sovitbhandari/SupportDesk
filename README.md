@@ -2,6 +2,7 @@
 
 Sprint 1 delivers the multi-tenant data foundation for the customer support platform.
 Sprint 2 adds the core backend API with JWT auth, RBAC, and Zod validation.
+Sprint 3 adds Redis-powered background jobs and live SSE message streaming.
 
 ## Monorepo Structure
 
@@ -24,7 +25,7 @@ Sprint 2 adds the core backend API with JWT auth, RBAC, and Zod validation.
    npm install
    ```
 
-2. Start PostgreSQL locally:
+2. Start local infrastructure (PostgreSQL + Redis):
 
    ```bash
    npm run db:up
@@ -82,6 +83,27 @@ Expected verification output:
 
    ```bash
    npm run api:typecheck
+   ```
+
+## Real-Time Engine (Sprint 3)
+
+1. Start API + worker:
+
+   ```bash
+   npm run api:start
+   npm run worker:start
+   ```
+
+2. Connect to SSE stream:
+
+   ```bash
+   curl -N http://localhost:4000/api/stream -H "Authorization: Bearer <token>"
+   ```
+
+3. Run Sprint 3 smoke test (checks 201 response + SSE latency):
+
+   ```bash
+   npm --workspace @zendesk-lite/backend run smoke:sprint3
    ```
 
 ## Acceptance Criteria Mapping

@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "db:up": "docker compose up -d db",
+    "db:up": "docker compose up -d db redis",
     "db:down": "docker compose down",
     "db:migrate": "npm --workspace @zendesk-lite/db run migrate",
     "db:seed": "npm --workspace @zendesk-lite/db run seed",
@@ -15,6 +15,8 @@
     "db:rollback": "npm --workspace @zendesk-lite/db run rollback",
     "api:dev": "npm --workspace @zendesk-lite/backend run dev",
     "api:start": "npm --workspace @zendesk-lite/backend run start",
-    "api:typecheck": "npm --workspace @zendesk-lite/backend run typecheck"
+    "api:typecheck": "npm --workspace @zendesk-lite/backend run typecheck",
+    "worker:start": "npm --workspace @zendesk-lite/backend run start:worker",
+    "worker:dev": "npm --workspace @zendesk-lite/backend run dev:worker"
   }
 }

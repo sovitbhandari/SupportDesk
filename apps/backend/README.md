@@ -1,6 +1,6 @@
-# Backend API (Sprint 2)
+# Backend API (Sprint 2 + Sprint 3)
 
-Express + TypeScript REST API with JWT auth, RBAC, and Zod validation.
+Express + TypeScript REST API with JWT auth, RBAC, Zod validation, Redis/BullMQ background jobs, and SSE live updates.
 
 ## Run
 
@@ -10,6 +10,7 @@ npm run db:up
 npm run db:migrate
 npm run db:seed
 npm run api:start
+npm run worker:start
 ```
 
 Health check:
@@ -24,7 +25,7 @@ curl http://localhost:4000/health
 - JWT includes: `sub`, `organizationId`, `role`, `email`
 - Protected routes require `Authorization: Bearer <token>`
 
-## Core Endpoints (15+)
+## Core Endpoints (19)
 
 - `POST /api/auth/login`
 - `GET /api/auth/me`
@@ -46,9 +47,19 @@ curl http://localhost:4000/health
 - `POST /api/tickets/:id/assign` (agent/admin)
 - `DELETE /api/tickets/:id/assign` (agent/admin)
 
-## Validation
+## Real-time + Queue (Sprint 3)
 
-All route bodies/params are validated with Zod before DB calls. Validation failures return:
+- SSE stream endpoint: `GET /api/stream`
+- On ticket creation, API responds `201` immediately and enqueues a BullMQ job (`ticket-notifications`).
+- Worker (`npm run worker:start`) processes jobs and logs `Email Sent`.
+- When an agent/admin posts a message, server publishes to Redis pub/sub and pushes to the ticket requester via SSE.
 
-- HTTP `400`
-- payload with `error=ValidationError`, source, and issue list.
+## Smoke Test
+
+With API + worker running:
+
+```bash
+npm --workspace @zendesk-lite/backend run smoke:sprint3
+```
+
+It prints JSON including API response time and SSE delivery latency.
