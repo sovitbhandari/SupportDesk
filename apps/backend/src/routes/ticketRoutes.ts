@@ -5,6 +5,8 @@ import { requireAuth } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/rbac.js";
 import { validate } from "../lib/validation.js";
 import type { AuthedRequest } from "../lib/types.js";
+import { ticketNotificationsQueue } from "../lib/queues.js";
+import { publishMessageEvent } from "../lib/events.js";
 
 const router = Router();
 
@@ -73,6 +75,26 @@ router.post("/", requireAuth, validate("body", ticketCreateSchema), async (req: 
     `,
     [req.auth?.organizationId, requesterId, req.body.subject, req.body.description, req.body.priority]
   );
+
+  const ticket = result.rows[0] as {
+    id: string;
+    organization_id: string;
+    requester_id: string;
+    subject: string;
+    created_at: string;
+  };
+
+  // Queue email notification asynchronously; API response is not blocked.
+  void ticketNotificationsQueue
+    .add("ticket-created-email", {
+      ticketId: ticket.id,
+      organizationId: ticket.organization_id,
+      requesterId: ticket.requester_id,
+      subject: ticket.subject
+    })
+    .catch((error: Error) => {
+      console.error("Failed to enqueue ticket notification job:", error.message);
+    });
 
   return res.status(201).json({ data: result.rows[0] });
 });
@@ -174,6 +196,33 @@ router.post(
       `,
       [req.auth?.organizationId, req.params.id, req.auth?.userId, req.body.body]
     );
+
+    const message = result.rows[0] as {
+      ticket_id: string;
+      organization_id: string;
+      author_id: string;
+      body: string;
+      created_at: string;
+    };
+
+    if (req.auth?.role === "agent" || req.auth?.role === "admin") {
+      const requesterResult = await pool.query(
+        "SELECT requester_id FROM tickets WHERE id = $1 AND organization_id = $2 LIMIT 1",
+        [req.params.id, req.auth?.organizationId]
+      );
+      const requesterId = requesterResult.rows[0]?.requester_id as string | undefined;
+      if (requesterId) {
+        void publishMessageEvent({
+          type: "ticket.message.created",
+          ticketId: message.ticket_id,
+          organizationId: message.organization_id,
+          senderId: message.author_id,
+          recipientUserId: requesterId,
+          body: message.body,
+          createdAt: message.created_at
+        });
+      }
+    }
 
     return res.status(201).json({ data: result.rows[0] });
   }
