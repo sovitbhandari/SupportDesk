@@ -5,7 +5,9 @@ import { pool } from "../client.js";
 const migrationFiles = [
   "001_init_schema.sql",
   "002_enable_rls.sql",
-  "004_fix_rls_recursion.sql"
+  "004_fix_rls_recursion.sql",
+  "005_add_manual_support_tables.sql",
+  "006_hash_legacy_passwords.sql"
 ];
 
 async function run() {

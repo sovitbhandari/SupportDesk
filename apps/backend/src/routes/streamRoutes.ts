@@ -6,7 +6,8 @@ import { messageChannel, type TicketMessageEvent } from "../lib/events.js";
 import { redisSubscriber } from "../lib/redis.js";
 
 const router = Router();
-const clients = new Map<string, Set<Response>>();
+type StreamClient = { res: Response; ticketId?: string };
+const clients = new Map<string, Set<StreamClient>>();
 let isSubscribed = false;
 
 async function ensureSubscribed() {
@@ -25,7 +26,9 @@ async function ensureSubscribed() {
 
       const data = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
       for (const client of targets) {
-        client.write(data);
+        if (!client.ticketId || client.ticketId === event.ticketId) {
+          client.res.write(data);
+        }
       }
     } catch {
       // ignore malformed events
@@ -37,6 +40,7 @@ async function ensureSubscribed() {
 
 export const handleStream = async (req: AuthedRequest, res: Response) => {
   const userId = req.auth?.userId;
+  const ticketId = typeof req.params.ticketId === "string" ? req.params.ticketId : undefined;
   if (!userId) {
     return res.status(401).json({ error: "Unauthenticated" });
   }
@@ -52,7 +56,8 @@ export const handleStream = async (req: AuthedRequest, res: Response) => {
     clients.set(userId, new Set());
   }
 
-  clients.get(userId)?.add(res);
+  const entry: StreamClient = { res, ticketId };
+  clients.get(userId)?.add(entry);
   res.write(`event: connected\ndata: ${JSON.stringify({ userId })}\n\n`);
 
   const heartbeat = setInterval(() => {
@@ -62,7 +67,7 @@ export const handleStream = async (req: AuthedRequest, res: Response) => {
   req.on("close", () => {
     clearInterval(heartbeat);
     const userClients = clients.get(userId);
-    userClients?.delete(res);
+    userClients?.delete(entry);
     if (userClients && userClients.size === 0) {
       clients.delete(userId);
     }
@@ -71,5 +76,6 @@ export const handleStream = async (req: AuthedRequest, res: Response) => {
 
 router.get("/", requireAuth, handleStream);
 router.get("", requireAuth, handleStream);
+router.get("/tickets/:ticketId/stream", requireAuth, handleStream);
 
 export default router;

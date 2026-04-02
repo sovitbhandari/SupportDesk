@@ -12,9 +12,14 @@
     "smoke:sprint3": "tsx src/scripts/sprint3Smoke.ts"
   },
   "dependencies": {
+    "@bull-board/api": "latest",
+    "@bull-board/express": "latest",
+    "bcryptjs": "latest",
+    "cookie-parser": "latest",
     "dotenv": "latest",
     "express": "latest",
     "jsonwebtoken": "latest",
+    "nodemailer": "latest",
     "pg": "latest",
     "zod": "latest",
     "helmet": "latest",
@@ -29,6 +34,8 @@
     "@types/jsonwebtoken": "latest",
     "@types/node": "latest",
     "@types/pg": "latest",
-    "@types/cors": "latest"
+    "@types/cors": "latest",
+    "@types/cookie-parser": "latest",
+    "@types/nodemailer": "latest"
   }
 }

@@ -4,6 +4,7 @@ export const messageChannel = "ticket:messages";
 
 export type TicketMessageEvent = {
   type: "ticket.message.created";
+  messageId: string;
   ticketId: string;
   organizationId: string;
   senderId: string;

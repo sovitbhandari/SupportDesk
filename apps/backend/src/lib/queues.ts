@@ -11,5 +11,13 @@ export type TicketCreatedJob = {
 };
 
 export const ticketNotificationsQueue = new Queue<TicketCreatedJob>(ticketNotificationsQueueName, {
-  connection: bullmqConnection
+  connection: bullmqConnection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: "exponential",
+      delay: 1000
+    },
+    removeOnComplete: true
+  }
 });

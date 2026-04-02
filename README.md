@@ -3,6 +3,7 @@
 Sprint 1 delivers the multi-tenant data foundation for the customer support platform.
 Sprint 2 adds the core backend API with JWT auth, RBAC, and Zod validation.
 Sprint 3 adds Redis-powered background jobs and live SSE message streaming.
+Sprint 4 adds the React frontend with role-based dashboards and optimistic UX.
 
 ## Monorepo Structure
 
@@ -105,6 +106,25 @@ Expected verification output:
    ```bash
    npm --workspace @zendesk-lite/backend run smoke:sprint3
    ```
+
+## Frontend App (Sprint 4)
+
+1. Start frontend dev server:
+
+   ```bash
+   npm run web:dev
+   ```
+
+2. Open `http://localhost:5173` and sign in with seeded users:
+   - `amy.admin@acme.com` (admin)
+   - `adam.agent@acme.com` (agent)
+   - `alice.customer@acme.com` (customer)
+
+3. Sprint 4 behaviors:
+   - customer ticket creation is optimistic
+   - message send is optimistic with rollback on error
+   - agent claim removes ticket from general queue immediately
+   - SSE appends incoming agent messages to customer chat automatically
 
 ## Acceptance Criteria Mapping
 

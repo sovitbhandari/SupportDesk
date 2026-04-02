@@ -10,6 +10,7 @@ type JwtPayload = {
   role: UserRole;
   email: string;
 };
+type RefreshJwtPayload = { sub: string };
 
 async function userStillValid(payload: JwtPayload): Promise<boolean> {
   const result = await pool.query(
@@ -59,7 +60,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   }
 }
 
-export function signToken(user: AuthUser) {
+export function signAccessToken(user: AuthUser) {
   return jwt.sign(
     {
       sub: user.userId,
@@ -71,3 +72,15 @@ export function signToken(user: AuthUser) {
     { expiresIn: config.jwtExpiresIn }
   );
 }
+
+export function signRefreshToken(userId: string) {
+  return jwt.sign({ sub: userId }, config.jwtRefreshSecret as jwt.Secret, {
+    expiresIn: config.jwtRefreshExpiresIn
+  });
+}
+
+export function verifyRefreshToken(token: string): RefreshJwtPayload {
+  return jwt.verify(token, config.jwtRefreshSecret) as RefreshJwtPayload;
+}
+
+export const signToken = signAccessToken;

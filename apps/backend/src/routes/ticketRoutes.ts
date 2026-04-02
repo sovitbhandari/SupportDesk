@@ -30,18 +30,65 @@ const messageCreateSchema = z.object({
 });
 
 const assignmentSchema = z.object({
-  agentId: z.string().uuid()
+  agentId: z.string().uuid().optional()
 });
 
 router.get("/", requireAuth, async (req: AuthedRequest, res) => {
+  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+  const assignedTo = typeof req.query.assigned_to === "string" ? req.query.assigned_to : undefined;
+  const unassignedOnly = req.query.unassigned === "true";
+  const where: string[] = ["t.organization_id = $1"];
+  const values: unknown[] = [req.auth?.organizationId];
+  let idx = 2;
+
+  if (status) {
+    where.push(`t.status = $${idx++}`);
+    values.push(status);
+  }
+  if (assignedTo === "me") {
+    where.push(`EXISTS (\n      SELECT 1 FROM ticket_assignments ta\n      WHERE ta.ticket_id = t.id\n        AND ta.organization_id = t.organization_id\n        AND ta.released_at IS NULL\n        AND ta.agent_id = $${idx}\n    )`);
+    values.push(req.auth?.userId);
+    idx += 1;
+  }
+  if (unassignedOnly) {
+    where.push(`NOT EXISTS (
+      SELECT 1 FROM ticket_assignments ta
+      WHERE ta.ticket_id = t.id
+        AND ta.organization_id = t.organization_id
+        AND ta.released_at IS NULL
+    )`);
+  }
+  if (req.auth?.role === "agent" && assignedTo !== "me" && !unassignedOnly) {
+    // Default agent view is "my assigned tickets".
+    where.push(`EXISTS (
+      SELECT 1 FROM ticket_assignments ta
+      WHERE ta.ticket_id = t.id
+        AND ta.organization_id = t.organization_id
+        AND ta.released_at IS NULL
+        AND ta.agent_id = $${idx}
+    )`);
+    values.push(req.auth.userId);
+    idx += 1;
+  }
+
   const result = await pool.query(
     `
-    SELECT id, organization_id, requester_id, subject, description, status, priority, created_at, updated_at
-    FROM tickets
-    WHERE organization_id = $1
-    ORDER BY created_at DESC
+    SELECT
+      t.id, t.organization_id, t.requester_id, t.subject, t.description, t.status, t.priority, t.created_at, t.updated_at,
+      (
+        SELECT ta.agent_id
+        FROM ticket_assignments ta
+        WHERE ta.ticket_id = t.id
+          AND ta.organization_id = t.organization_id
+          AND ta.released_at IS NULL
+        ORDER BY ta.assigned_at DESC
+        LIMIT 1
+      ) AS active_assignment_agent_id
+    FROM tickets t
+    WHERE ${where.join(" AND ")}
+    ORDER BY t.created_at DESC
     `,
-    [req.auth?.organizationId]
+    values
   );
 
   return res.status(200).json({ data: result.rows });
@@ -50,9 +97,19 @@ router.get("/", requireAuth, async (req: AuthedRequest, res) => {
 router.get("/:id", requireAuth, validate("params", ticketIdParamsSchema), async (req: AuthedRequest, res) => {
   const result = await pool.query(
     `
-    SELECT id, organization_id, requester_id, subject, description, status, priority, created_at, updated_at
-    FROM tickets
-    WHERE id = $1 AND organization_id = $2
+    SELECT
+      t.id, t.organization_id, t.requester_id, t.subject, t.description, t.status, t.priority, t.created_at, t.updated_at,
+      (
+        SELECT ta.agent_id
+        FROM ticket_assignments ta
+        WHERE ta.ticket_id = t.id
+          AND ta.organization_id = t.organization_id
+          AND ta.released_at IS NULL
+        ORDER BY ta.assigned_at DESC
+        LIMIT 1
+      ) AS active_assignment_agent_id
+    FROM tickets t
+    WHERE t.id = $1 AND t.organization_id = $2
     LIMIT 1
     `,
     [req.params.id, req.auth?.organizationId]
@@ -91,6 +148,20 @@ router.post("/", requireAuth, validate("body", ticketCreateSchema), async (req: 
       organizationId: ticket.organization_id,
       requesterId: ticket.requester_id,
       subject: ticket.subject
+    })
+    .then(async () => {
+      await pool.query(
+        `INSERT INTO notification_jobs(organization_id, type, payload, status, attempts) VALUES($1, $2, $3::jsonb, 'queued', 0)`,
+        [
+          ticket.organization_id,
+          "ticket-created",
+          JSON.stringify({
+            ticketId: ticket.id,
+            requesterId: ticket.requester_id,
+            subject: ticket.subject
+          })
+        ]
+      );
     })
     .catch((error: Error) => {
       console.error("Failed to enqueue ticket notification job:", error.message);
@@ -198,6 +269,7 @@ router.post(
     );
 
     const message = result.rows[0] as {
+      id: string;
       ticket_id: string;
       organization_id: string;
       author_id: string;
@@ -214,6 +286,7 @@ router.post(
       if (requesterId) {
         void publishMessageEvent({
           type: "ticket.message.created",
+          messageId: message.id,
           ticketId: message.ticket_id,
           organizationId: message.organization_id,
           senderId: message.author_id,
@@ -235,6 +308,12 @@ router.post(
   validate("params", ticketIdParamsSchema),
   validate("body", assignmentSchema),
   async (req: AuthedRequest, res) => {
+    const targetAgentId =
+      req.auth?.role === "agent" ? req.auth.userId : req.body.agentId;
+    if (!targetAgentId) {
+      return res.status(400).json({ error: "agentId is required for admin assignment" });
+    }
+
     const targetAgent = await pool.query(
       `
       SELECT u.id
@@ -244,7 +323,7 @@ router.post(
       WHERE u.id = $1 AND u.organization_id = $2 AND r.key = 'agent'
       LIMIT 1
       `,
-      [req.body.agentId, req.auth?.organizationId]
+      [targetAgentId, req.auth?.organizationId]
     );
 
     if (targetAgent.rowCount !== 1) {
@@ -259,13 +338,34 @@ router.post(
       return res.status(404).json({ error: "Ticket not found" });
     }
 
+    const activeAssignment = await pool.query(
+      `
+      SELECT id, agent_id FROM ticket_assignments
+      WHERE ticket_id = $1 AND organization_id = $2 AND released_at IS NULL
+      LIMIT 1
+      `,
+      [req.params.id, req.auth?.organizationId]
+    );
+    if (activeAssignment.rowCount !== 0) {
+      const current = activeAssignment.rows[0];
+      if (req.auth?.role === "admin") {
+        // Admin manual assignment can reassign by closing current assignment.
+        await pool.query(
+          "UPDATE ticket_assignments SET released_at = now() WHERE id = $1",
+          [current.id]
+        );
+      } else {
+        return res.status(409).json({ error: "Ticket already assigned" });
+      }
+    }
+
     const result = await pool.query(
       `
       INSERT INTO ticket_assignments(organization_id, ticket_id, agent_id)
       VALUES($1, $2, $3)
       RETURNING id, organization_id, ticket_id, agent_id, assigned_at, released_at
       `,
-      [req.auth?.organizationId, req.params.id, req.body.agentId]
+      [req.auth?.organizationId, req.params.id, targetAgentId]
     );
 
     return res.status(201).json({ data: result.rows[0] });

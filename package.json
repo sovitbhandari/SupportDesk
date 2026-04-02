@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "db:up": "docker compose up -d db redis",
+    "db:up": "docker compose up -d db redis mailhog",
     "db:down": "docker compose down",
     "db:migrate": "npm --workspace @zendesk-lite/db run migrate",
     "db:seed": "npm --workspace @zendesk-lite/db run seed",
@@ -17,6 +17,9 @@
     "api:start": "npm --workspace @zendesk-lite/backend run start",
     "api:typecheck": "npm --workspace @zendesk-lite/backend run typecheck",
     "worker:start": "npm --workspace @zendesk-lite/backend run start:worker",
-    "worker:dev": "npm --workspace @zendesk-lite/backend run dev:worker"
+    "worker:dev": "npm --workspace @zendesk-lite/backend run dev:worker",
+    "web:dev": "npm --workspace @zendesk-lite/frontend run dev",
+    "web:build": "npm --workspace @zendesk-lite/frontend run build",
+    "web:typecheck": "npm --workspace @zendesk-lite/frontend run typecheck"
   }
 }
