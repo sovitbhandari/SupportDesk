@@ -32,7 +32,7 @@ createBullBoard({
 app.use(helmet());
 app.use(
   cors({
-    origin: config.corsOrigin,
+    origin: config.corsOrigins,
     credentials: true
   })
 );
@@ -54,7 +54,6 @@ app.use("/api/organizations", organizationRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/stream", streamRoutes);
-app.get("/api/stream", requireAuth, handleStream);
 app.get("/api/tickets/:ticketId/stream", requireAuth, handleStream);
 app.use("/api/profile", profileRoutes);
 app.use("/api/admin", adminRoutes);

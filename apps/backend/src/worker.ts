@@ -23,7 +23,7 @@ const worker = new Worker<TicketCreatedJob>(
 
     if (email) {
       await transporter.sendMail({
-        from: process.env.FROM_EMAIL ?? "support@zendesk-lite.local",
+        from: process.env.FROM_EMAIL ?? "support@supportdesk.local",
         to: email,
         subject: `Ticket Created: ${subject}`,
         text: `Hi ${requester.rows[0].full_name}, your ticket (${ticketId}) was created.`

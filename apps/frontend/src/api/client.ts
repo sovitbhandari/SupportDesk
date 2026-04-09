@@ -52,12 +52,31 @@ export async function apiRequest<T>(path: string, init?: RequestInit, token?: st
     });
 
   const initialToken = token ?? accessToken;
-  let response = await makeRequest(initialToken);
+  let response: Response;
+  try {
+    response = await makeRequest(initialToken);
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    throw new ApiError(
+      `Cannot reach API at ${API_BASE}. Is the backend running on port 4000? (${reason})`,
+      0,
+      null
+    );
+  }
 
   if (response.status === 401 && initialToken) {
-    const refreshed = await tryRefreshToken();
-    if (refreshed) {
-      response = await makeRequest(accessToken);
+    try {
+      const refreshed = await tryRefreshToken();
+      if (refreshed) {
+        response = await makeRequest(accessToken);
+      }
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      throw new ApiError(
+        `Cannot reach API at ${API_BASE}. Is the backend running on port 4000? (${reason})`,
+        0,
+        null
+      );
     }
   }
 

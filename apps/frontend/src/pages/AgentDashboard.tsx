@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { assignTicket, listTickets, updateTicketStatus } from "../api/endpoints";
 import { ChatPanel } from "../components/ChatPanel";
 import { useAuth } from "../hooks/useAuth";
-import type { Ticket } from "../types";
+import { useSseMessages } from "../hooks/useSseMessages";
+import type { Message, SseMessageEvent, Ticket } from "../types";
 
 type QueueView = "assigned" | "claim" | "solved";
 
@@ -12,6 +13,7 @@ export function AgentDashboard() {
   const queryClient = useQueryClient();
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [view, setView] = useState<QueueView>("assigned");
+  const [incomingMessages, setIncomingMessages] = useState<Message[]>([]);
 
   const assignedQuery = useQuery({
     queryKey: ["tickets", "assigned"],
@@ -23,13 +25,6 @@ export function AgentDashboard() {
   const claimableQuery = useQuery({
     queryKey: ["tickets", "claimable"],
     queryFn: () => listTickets(token!, { unassigned: true, status: "open" }),
-    enabled: Boolean(token),
-    refetchInterval: 5000
-  });
-
-  const solvedQuery = useQuery({
-    queryKey: ["tickets", "solved"],
-    queryFn: () => listTickets(token!, { assignedToMe: true, status: "resolved" }),
     enabled: Boolean(token),
     refetchInterval: 5000
   });
@@ -61,15 +56,40 @@ export function AgentDashboard() {
   });
 
   const queueTickets = useMemo(() => {
-    if (view === "assigned") return assignedQuery.data ?? [];
+    if (view === "assigned") {
+      return (assignedQuery.data ?? []).filter(
+        (ticket) => ticket.status === "open" || ticket.status === "pending"
+      );
+    }
     if (view === "claim") return claimableQuery.data ?? [];
-    return solvedQuery.data ?? [];
-  }, [view, assignedQuery.data, claimableQuery.data, solvedQuery.data]);
+    return (assignedQuery.data ?? []).filter(
+      (ticket) => ticket.status === "resolved" || ticket.status === "closed"
+    );
+  }, [view, assignedQuery.data, claimableQuery.data]);
 
   const selectedTicket =
-    [...(assignedQuery.data ?? []), ...(claimableQuery.data ?? []), ...(solvedQuery.data ?? [])].find(
+    [...(assignedQuery.data ?? []), ...(claimableQuery.data ?? [])].find(
       (ticket) => ticket.id === selectedTicketId
     ) ?? null;
+
+  const onSseEvent = useCallback((event: SseMessageEvent) => {
+    const message: Message = {
+      id: event.messageId,
+      organization_id: event.organizationId,
+      ticket_id: event.ticketId,
+      author_id: event.senderId,
+      body: event.body,
+      created_at: event.createdAt
+    };
+    setIncomingMessages((previous) => {
+      if (previous.some((m) => m.id === message.id)) {
+        return previous;
+      }
+      return [...previous, message];
+    });
+  }, []);
+
+  useSseMessages(token, onSseEvent);
 
   return (
     <div className="workspace-grid">
@@ -137,7 +157,10 @@ export function AgentDashboard() {
                 </button>
               </div>
             )}
-            <ChatPanel ticket={selectedTicket} incomingMessages={[]} />
+            <ChatPanel
+              ticket={selectedTicket}
+              incomingMessages={incomingMessages.filter((m) => m.ticket_id === selectedTicket.id)}
+            />
           </>
         ) : (
           <div className="empty-state">Select a ticket to open details and conversation.</div>

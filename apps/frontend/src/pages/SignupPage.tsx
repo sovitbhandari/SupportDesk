@@ -16,7 +16,7 @@ export function SignupPage() {
   return (
     <div className="center card">
       <h2>Create your support workspace</h2>
-      <p className="muted">Create your profile and organization to start using Zendesk Lite.</p>
+      <p className="muted">Create your profile and organization to start using SupportDesk.</p>
       <form
         onSubmit={async (event) => {
           event.preventDefault();

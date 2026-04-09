@@ -33,6 +33,33 @@ const assignmentSchema = z.object({
   agentId: z.string().uuid().optional()
 });
 
+async function getTicketAccessContext(ticketId: string, organizationId: string) {
+  const result = await pool.query(
+    `
+    SELECT
+      t.id,
+      t.requester_id,
+      (
+        SELECT ta.agent_id
+        FROM ticket_assignments ta
+        WHERE ta.ticket_id = t.id
+          AND ta.organization_id = t.organization_id
+          AND ta.released_at IS NULL
+        ORDER BY ta.assigned_at DESC
+        LIMIT 1
+      ) AS active_assignment_agent_id
+    FROM tickets t
+    WHERE t.id = $1 AND t.organization_id = $2
+    LIMIT 1
+    `,
+    [ticketId, organizationId]
+  );
+
+  return result.rows[0] as
+    | { id: string; requester_id: string; active_assignment_agent_id: string | null }
+    | undefined;
+}
+
 router.get("/", requireAuth, async (req: AuthedRequest, res) => {
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const assignedTo = typeof req.query.assigned_to === "string" ? req.query.assigned_to : undefined;
@@ -70,6 +97,11 @@ router.get("/", requireAuth, async (req: AuthedRequest, res) => {
     values.push(req.auth.userId);
     idx += 1;
   }
+  if (req.auth?.role === "customer") {
+    where.push(`t.requester_id = $${idx}`);
+    values.push(req.auth.userId);
+    idx += 1;
+  }
 
   const result = await pool.query(
     `
@@ -95,6 +127,13 @@ router.get("/", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 router.get("/:id", requireAuth, validate("params", ticketIdParamsSchema), async (req: AuthedRequest, res) => {
+  const where: string[] = ["t.id = $1", "t.organization_id = $2"];
+  const values: unknown[] = [req.params.id, req.auth?.organizationId];
+  if (req.auth?.role === "customer") {
+    where.push("t.requester_id = $3");
+    values.push(req.auth.userId);
+  }
+
   const result = await pool.query(
     `
     SELECT
@@ -109,14 +148,20 @@ router.get("/:id", requireAuth, validate("params", ticketIdParamsSchema), async 
         LIMIT 1
       ) AS active_assignment_agent_id
     FROM tickets t
-    WHERE t.id = $1 AND t.organization_id = $2
+    WHERE ${where.join(" AND ")}
     LIMIT 1
     `,
-    [req.params.id, req.auth?.organizationId]
+    values
   );
 
   if (result.rowCount !== 1) {
     return res.status(404).json({ error: "Ticket not found" });
+  }
+  if (
+    req.auth?.role === "agent" &&
+    result.rows[0].active_assignment_agent_id !== req.auth.userId
+  ) {
+    return res.status(403).json({ error: "Forbidden" });
   }
 
   return res.status(200).json({ data: result.rows[0] });
@@ -171,6 +216,18 @@ router.post("/", requireAuth, validate("body", ticketCreateSchema), async (req: 
 });
 
 router.patch("/:id", requireAuth, validate("params", ticketIdParamsSchema), validate("body", ticketUpdateSchema), async (req: AuthedRequest, res) => {
+  const ticketId = String(req.params.id);
+  const ticket = await getTicketAccessContext(ticketId, req.auth?.organizationId as string);
+  if (!ticket) {
+    return res.status(404).json({ error: "Ticket not found" });
+  }
+  if (req.auth?.role === "customer") {
+    return res.status(403).json({ error: "Customers cannot update tickets directly" });
+  }
+  if (req.auth?.role === "agent" && ticket.active_assignment_agent_id !== req.auth.userId) {
+    return res.status(403).json({ error: "Agents can only update their assigned tickets" });
+  }
+
   const fields: string[] = [];
   const values: unknown[] = [];
   let idx = 1;
@@ -224,12 +281,16 @@ router.delete("/:id", requireAuth, allowRoles("admin"), validate("params", ticke
 });
 
 router.get("/:id/messages", requireAuth, validate("params", ticketIdParamsSchema), async (req: AuthedRequest, res) => {
-  const ticket = await pool.query("SELECT id FROM tickets WHERE id = $1 AND organization_id = $2", [
-    req.params.id,
-    req.auth?.organizationId
-  ]);
-  if (ticket.rowCount !== 1) {
+  const ticketId = String(req.params.id);
+  const ticket = await getTicketAccessContext(ticketId, req.auth?.organizationId as string);
+  if (!ticket) {
     return res.status(404).json({ error: "Ticket not found" });
+  }
+  if (req.auth?.role === "customer" && ticket.requester_id !== req.auth.userId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  if (req.auth?.role === "agent" && ticket.active_assignment_agent_id !== req.auth.userId) {
+    return res.status(403).json({ error: "Forbidden" });
   }
 
   const result = await pool.query(
@@ -251,12 +312,16 @@ router.post(
   validate("params", ticketIdParamsSchema),
   validate("body", messageCreateSchema),
   async (req: AuthedRequest, res) => {
-    const ticket = await pool.query("SELECT id FROM tickets WHERE id = $1 AND organization_id = $2", [
-      req.params.id,
-      req.auth?.organizationId
-    ]);
-    if (ticket.rowCount !== 1) {
+    const ticketId = String(req.params.id);
+    const ticket = await getTicketAccessContext(ticketId, req.auth?.organizationId as string);
+    if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
+    }
+    if (req.auth?.role === "customer" && ticket.requester_id !== req.auth.userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    if (req.auth?.role === "agent" && ticket.active_assignment_agent_id !== req.auth.userId) {
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     const result = await pool.query(
@@ -277,24 +342,19 @@ router.post(
       created_at: string;
     };
 
-    if (req.auth?.role === "agent" || req.auth?.role === "admin") {
-      const requesterResult = await pool.query(
-        "SELECT requester_id FROM tickets WHERE id = $1 AND organization_id = $2 LIMIT 1",
-        [req.params.id, req.auth?.organizationId]
-      );
-      const requesterId = requesterResult.rows[0]?.requester_id as string | undefined;
-      if (requesterId) {
-        void publishMessageEvent({
-          type: "ticket.message.created",
-          messageId: message.id,
-          ticketId: message.ticket_id,
-          organizationId: message.organization_id,
-          senderId: message.author_id,
-          recipientUserId: requesterId,
-          body: message.body,
-          createdAt: message.created_at
-        });
-      }
+    const recipientUserId =
+      req.auth?.role === "customer" ? ticket.active_assignment_agent_id : ticket.requester_id;
+    if (recipientUserId) {
+      void publishMessageEvent({
+        type: "ticket.message.created",
+        messageId: message.id,
+        ticketId: message.ticket_id,
+        organizationId: message.organization_id,
+        senderId: message.author_id,
+        recipientUserId,
+        body: message.body,
+        createdAt: message.created_at
+      });
     }
 
     return res.status(201).json({ data: result.rows[0] });
@@ -378,17 +438,30 @@ router.delete(
   allowRoles("admin", "agent"),
   validate("params", ticketIdParamsSchema),
   async (req: AuthedRequest, res) => {
-    const result = await pool.query(
+    const query =
+      req.auth?.role === "agent"
+        ? `
+      UPDATE ticket_assignments
+      SET released_at = now()
+      WHERE ticket_id = $1
+        AND organization_id = $2
+        AND released_at IS NULL
+        AND agent_id = $3
+      RETURNING id
       `
+        : `
       UPDATE ticket_assignments
       SET released_at = now()
       WHERE ticket_id = $1
         AND organization_id = $2
         AND released_at IS NULL
       RETURNING id
-      `,
-      [req.params.id, req.auth?.organizationId]
-    );
+      `;
+    const values =
+      req.auth?.role === "agent"
+        ? [req.params.id, req.auth?.organizationId, req.auth.userId]
+        : [req.params.id, req.auth?.organizationId];
+    const result = await pool.query(query, values);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: "Active assignment not found" });

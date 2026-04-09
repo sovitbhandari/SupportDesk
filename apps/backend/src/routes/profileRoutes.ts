@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { pool } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -95,13 +96,15 @@ router.patch(
       return res.status(404).json({ error: "Profile not found" });
     }
 
-    if (current.rows[0].password_hash !== req.body.currentPassword) {
+    const ok = await bcrypt.compare(req.body.currentPassword, current.rows[0].password_hash as string);
+    if (!ok) {
       return res.status(401).json({ error: "Current password is incorrect" });
     }
 
+    const nextHash = await bcrypt.hash(req.body.newPassword, 10);
     await pool.query(
       "UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2 AND organization_id = $3",
-      [req.body.newPassword, req.auth?.userId, req.auth?.organizationId]
+      [nextHash, req.auth?.userId, req.auth?.organizationId]
     );
 
     return res.status(200).json({ message: "Password updated" });

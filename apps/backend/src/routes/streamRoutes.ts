@@ -75,7 +75,6 @@ export const handleStream = async (req: AuthedRequest, res: Response) => {
 };
 
 router.get("/", requireAuth, handleStream);
-router.get("", requireAuth, handleStream);
 router.get("/tickets/:ticketId/stream", requireAuth, handleStream);
 
 export default router;

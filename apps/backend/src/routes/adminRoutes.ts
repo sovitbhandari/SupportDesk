@@ -119,6 +119,10 @@ router.patch(
   validate("params", employeeParams),
   validate("body", updateEmployeeSchema),
   async (req: AuthedRequest, res) => {
+    if (req.body.role === undefined && req.body.isActive === undefined) {
+      return res.status(400).json({ error: "Provide at least one field: role or isActive" });
+    }
+
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -168,6 +172,11 @@ router.patch(
           await client.query("ROLLBACK");
           return res.status(400).json({ error: "At least one active admin is required" });
         }
+      }
+
+      if (current.role === "customer" && req.body.role === "admin" && req.body.isActive === false) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "An inactive user cannot be promoted to admin" });
       }
 
       if (req.body.isActive !== undefined) {
@@ -239,7 +248,10 @@ router.get("/metrics", requireAuth, allowRoles("admin"), async (req: AuthedReque
     FROM users u
     JOIN organization_memberships om ON om.user_id = u.id
     JOIN roles r ON r.id = om.role_id
-    LEFT JOIN ticket_assignments ta ON ta.agent_id = u.id AND ta.organization_id = u.organization_id
+    LEFT JOIN ticket_assignments ta
+      ON ta.agent_id = u.id
+      AND ta.organization_id = u.organization_id
+      AND ta.released_at IS NULL
     WHERE u.organization_id = $1 AND r.key = 'agent'
     GROUP BY u.id
     ORDER BY assigned_count DESC

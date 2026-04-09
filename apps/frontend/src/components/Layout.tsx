@@ -15,7 +15,7 @@ export function Layout() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">Zendesk Lite</div>
+        <div className="brand">SupportDesk</div>
         <nav className="side-nav">
           {navItems.map((item) => (
             <Link

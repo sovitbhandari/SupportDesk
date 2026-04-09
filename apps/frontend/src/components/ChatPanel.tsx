@@ -67,9 +67,15 @@ export function ChatPanel({ ticket, incomingMessages }: Props) {
   }
 
   return (
-    <div className="panel">
-      <h3>Chat: {ticket.subject}</h3>
+    <div className="panel chat-panel">
+      <div className="chat-panel-head">
+        <h3>Conversation</h3>
+        <small className="muted">{combinedMessages.length} messages</small>
+      </div>
       <div className="chat-log">
+        {combinedMessages.length === 0 && (
+          <div className="chat-empty muted">No messages yet. Start the conversation.</div>
+        )}
         {combinedMessages.map((message) => (
           <div key={message.id} className={message.author_id === user?.userId ? "msg mine" : "msg"}>
             <div className="msg-content">
@@ -82,7 +88,7 @@ export function ChatPanel({ ticket, incomingMessages }: Props) {
       </div>
       {warning && <p className="warning">{warning}</p>}
       <form
-        className="chat-form"
+        className="chat-form chat-compose"
         onSubmit={(event) => {
           event.preventDefault();
           if (!draft.trim() || sendMutation.isPending) {

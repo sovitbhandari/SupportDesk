@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { pool } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -24,7 +25,7 @@ const updateUserSchema = z.object({
   isActive: z.boolean().optional()
 });
 
-router.get("/", requireAuth, async (req: AuthedRequest, res) => {
+router.get("/", requireAuth, allowRoles("admin", "agent"), async (req: AuthedRequest, res) => {
   const result = await pool.query(
     "SELECT id, organization_id, email, full_name, is_active, created_at, updated_at FROM users WHERE organization_id = $1 ORDER BY created_at DESC",
     [req.auth?.organizationId]
@@ -33,7 +34,7 @@ router.get("/", requireAuth, async (req: AuthedRequest, res) => {
   return res.status(200).json({ data: result.rows });
 });
 
-router.get("/:id", requireAuth, validate("params", userParamsSchema), async (req: AuthedRequest, res) => {
+router.get("/:id", requireAuth, allowRoles("admin", "agent"), validate("params", userParamsSchema), async (req: AuthedRequest, res) => {
   const result = await pool.query(
     "SELECT id, organization_id, email, full_name, is_active, created_at, updated_at FROM users WHERE id = $1 AND organization_id = $2",
     [req.params.id, req.auth?.organizationId]
@@ -50,6 +51,7 @@ router.post("/", requireAuth, allowRoles("admin"), validate("body", createUserSc
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const passwordHash = await bcrypt.hash(req.body.password, 10);
 
     const userResult = await client.query(
       `
@@ -57,7 +59,7 @@ router.post("/", requireAuth, allowRoles("admin"), validate("body", createUserSc
       VALUES ($1, $2, $3, $4)
       RETURNING id, organization_id, email, full_name, is_active, created_at, updated_at
       `,
-      [req.auth?.organizationId, req.body.email, req.body.fullName, req.body.password]
+      [req.auth?.organizationId, req.body.email, req.body.fullName, passwordHash]
     );
 
     const roleResult = await client.query("SELECT id FROM roles WHERE key = $1 LIMIT 1", [req.body.role]);

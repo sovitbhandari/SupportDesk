@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,green \"npm run api:dev\" \"npm run web:dev\"",
     "db:up": "docker compose up -d db redis mailhog",
     "db:down": "docker compose down",
     "db:migrate": "npm --workspace @zendesk-lite/db run migrate",
@@ -21,5 +22,8 @@
     "web:dev": "npm --workspace @zendesk-lite/frontend run dev",
     "web:build": "npm --workspace @zendesk-lite/frontend run build",
     "web:typecheck": "npm --workspace @zendesk-lite/frontend run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

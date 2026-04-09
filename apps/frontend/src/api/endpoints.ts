@@ -83,6 +83,21 @@ export async function listEmployees(token: string) {
   return result.data;
 }
 
+export async function listUsers(token: string) {
+  const result = await apiRequest<{
+    data: Array<{
+      id: string;
+      organization_id: string;
+      email: string;
+      full_name: string;
+      is_active: boolean;
+      created_at: string;
+      updated_at: string;
+    }>;
+  }>("/api/users", undefined, token);
+  return result.data;
+}
+
 export async function updateEmployee(
   token: string,
   id: string,

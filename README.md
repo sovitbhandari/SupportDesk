@@ -1,4 +1,4 @@
-# Zendesk-Lite Monorepo
+# SupportDesk Monorepo
 
 Sprint 1 delivers the multi-tenant data foundation for the customer support platform.
 Sprint 2 adds the core backend API with JWT auth, RBAC, and Zod validation.
@@ -109,18 +109,24 @@ Expected verification output:
 
 ## Frontend App (Sprint 4)
 
-1. Start frontend dev server:
+1. Start the **API and the Vite dev server** (one command):
 
    ```bash
-   npm run web:dev
+   npm run dev
    ```
 
-2. Open `http://localhost:5173` and sign in with seeded users:
+   Or run them in **two terminals**: `npm run api:dev` and `npm run web:dev`.
+
+2. Open **`http://localhost:5173`** in your browser (not port 4000 — that is only the API).
+
+   If you see **“This site can’t be reached”**, the dev server is not running: use `npm run dev` or `npm run web:dev` and wait until the terminal shows the local URL.
+
+3. Sign in with seeded users:
    - `amy.admin@acme.com` (admin)
    - `adam.agent@acme.com` (agent)
    - `alice.customer@acme.com` (customer)
 
-3. Sprint 4 behaviors:
+4. Sprint 4 behaviors:
    - customer ticket creation is optimistic
    - message send is optimistic with rollback on error
    - agent claim removes ticket from general queue immediately

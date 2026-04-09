@@ -4,3 +4,5 @@ node_modules/
 *.log
 apps/frontend/dist
 *.tsbuildinfo
+.cursor/
+.github/
