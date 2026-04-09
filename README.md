@@ -1,140 +1,93 @@
-# SupportDesk Monorepo
+# SupportDesk
 
-Sprint 1 delivers the multi-tenant data foundation for the customer support platform.
-Sprint 2 adds the core backend API with JWT auth, RBAC, and Zod validation.
-Sprint 3 adds Redis-powered background jobs and live SSE message streaming.
-Sprint 4 adds the React frontend with role-based dashboards and optimistic UX.
+SupportDesk is a lightweight, multi-tenant customer support platform with:
+- authentication + RBAC
+- ticket creation and assignment
+- customer/agent messaging
+- live updates (SSE)
+- background notifications
 
-## Monorepo Structure
+## Screenshot
 
-- `apps/frontend` - frontend app placeholder
-- `apps/backend` - Express TypeScript REST API (Sprint 2)
-- `packages/db` - PostgreSQL schema, migrations, seed, and isolation verification scripts
-- `docs/database-schema.md` - schema and RLS documentation
+![SupportDesk Admin Workspace](docs/images/admin-workspace.png)
 
-## Prerequisites
+## Project structure
 
-- Docker / Docker Compose
+```text
+SupportDesk/
+├── apps/
+│   ├── backend/        # Express API, auth, RBAC, tickets, SSE, worker
+│   └── frontend/       # React + Vite UI (admin/agent/customer workspaces)
+├── packages/
+│   └── db/             # SQL migrations, seed data, db scripts
+├── docs/
+│   ├── database-schema.md
+│   └── images/
+│       └── admin-workspace.png
+├── docker-compose.yml  # Postgres + Redis + Mailhog
+└── package.json        # Monorepo scripts
+```
+
+## Prerequisites (install once)
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker + Compose)
 - Node.js 20+
 - npm 10+
 
-## Quickstart (Sprint 1)
+## Run locally (beginner-friendly)
 
-1. Install dependencies:
+From the repository root:
 
+1. Install dependencies
    ```bash
    npm install
    ```
 
-2. Start local infrastructure (PostgreSQL + Redis):
-
+2. Start local services (database, redis, mail testing)
    ```bash
    npm run db:up
    ```
 
-3. Apply schema and RLS migrations:
-
+3. Apply database migrations
    ```bash
    npm run db:migrate
    ```
 
-4. Seed two organizations:
-
+4. Seed sample users and data
    ```bash
    npm run db:seed
    ```
 
-5. Verify tenant isolation at DB layer:
-
-   ```bash
-   npm run db:verify-isolation
-   ```
-
-Expected verification output:
-
-- `RLS isolation verified: Org A user cannot read Org B ticket.`
-
-6. (Optional) Rollback Sprint 1 DB objects:
-
-   ```bash
-   npm run db:rollback
-   ```
-
-## Hardening Additions
-
-- **Migration ledger:** `schema_migrations` table is managed by `packages/db/src/scripts/migrate.ts` to ensure each migration runs once.
-- **Rollback support:** `packages/db/migrations/999_rollback_sprint1.sql` and `npm run db:rollback` provide a clean reset path for local/dev recovery.
-- **CI isolation gate:** `.github/workflows/db-isolation.yml` runs migrate + seed + isolation verification on every push and pull request.
-
-## Backend API (Sprint 2)
-
-1. Start API:
-
-   ```bash
-   npm run api:start
-   ```
-
-2. Dev mode with watch:
-
-   ```bash
-   npm run api:dev
-   ```
-
-3. Type-check API:
-
-   ```bash
-   npm run api:typecheck
-   ```
-
-## Real-Time Engine (Sprint 3)
-
-1. Start API + worker:
-
-   ```bash
-   npm run api:start
-   npm run worker:start
-   ```
-
-2. Connect to SSE stream:
-
-   ```bash
-   curl -N http://localhost:4000/api/stream -H "Authorization: Bearer <token>"
-   ```
-
-3. Run Sprint 3 smoke test (checks 201 response + SSE latency):
-
-   ```bash
-   npm --workspace @zendesk-lite/backend run smoke:sprint3
-   ```
-
-## Frontend App (Sprint 4)
-
-1. Start the **API and the Vite dev server** (one command):
-
+5. Start the app (API + frontend together)
    ```bash
    npm run dev
    ```
 
-   Or run them in **two terminals**: `npm run api:dev` and `npm run web:dev`.
+6. Open the app
+   - Frontend UI: `http://localhost:5173`
+   - API health check: `http://localhost:4000/health`
 
-2. Open **`http://localhost:5173`** in your browser (not port 4000 — that is only the API).
+## Demo accounts
 
-   If you see **“This site can’t be reached”**, the dev server is not running: use `npm run dev` or `npm run web:dev` and wait until the terminal shows the local URL.
+- Admin: `amy.admin@acme.com`
+- Agent: `adam.agent@acme.com`
+- Customer: `alice.customer@acme.com`
+- Password (all seeded users): `hashed-password`
 
-3. Sign in with seeded users:
-   - `amy.admin@acme.com` (admin)
-   - `adam.agent@acme.com` (agent)
-   - `alice.customer@acme.com` (customer)
+## Useful commands
 
-4. Sprint 4 behaviors:
-   - customer ticket creation is optimistic
-   - message send is optimistic with rollback on error
-   - agent claim removes ticket from general queue immediately
-   - SSE appends incoming agent messages to customer chat automatically
+```bash
+npm run api:typecheck
+npm run web:typecheck
+npm run db:verify-isolation
+npm run db:down
+```
 
-## Acceptance Criteria Mapping
+## Troubleshooting
 
-- **8 core tables:** implemented in `packages/db/migrations/001_init_schema.sql` and typed in `packages/db/src/schema.ts`.
-- **RLS policies:** implemented in `packages/db/migrations/002_enable_rls.sql` with forced tenant checks.
-- **Two-org seed data:** implemented in `packages/db/migrations/003_seed.sql`.
-- **Cross-tenant query blocked at DB level:** demonstrated by `packages/db/src/scripts/verifyIsolation.ts` run through `npm run db:verify-isolation`.
+- **“This site can’t be reached” on port 5173**
+  - make sure `npm run dev` is running
+- **Login fails with seeded users**
+  - run `npm run db:migrate` and `npm run db:seed` again
+- **API errors about DB**
+  - confirm Docker is running and `npm run db:up` completed successfully
