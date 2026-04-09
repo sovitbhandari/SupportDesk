@@ -156,19 +156,6 @@ export async function updateTicketStatus(
   return result.data;
 }
 
-export async function playgroundCreateTicket(payload: {
-  name: string;
-  email: string;
-  subject: string;
-  description: string;
-  companySlug?: string;
-}) {
-  return apiRequest<{ token: string; ticket: Ticket }>(
-    "/api/playground/ticket",
-    { method: "POST", body: JSON.stringify(payload) }
-  );
-}
-
 export async function listMessages(token: string, ticketId: string) {
   const result = await apiRequest<{ data: Message[] }>(`/api/tickets/${ticketId}/messages`, undefined, token);
   return result.data;

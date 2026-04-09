@@ -59,8 +59,7 @@ export function LoginPage() {
           <button type="submit" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</button>
         </form>
         <p className="muted">
-          New here? <Link to="/signup">Create account</Link> or{" "}
-          <Link to="/playground">try customer playground</Link>
+          New here? <Link to="/signup">Create account</Link>
         </p>
       </div>
     </div>

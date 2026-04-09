@@ -9,14 +9,12 @@ import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { UnauthorizedPage } from "./pages/UnauthorizedPage";
-import { CustomerPlaygroundPage } from "./pages/CustomerPlaygroundPage";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route path="/playground" element={<CustomerPlaygroundPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route
         element={

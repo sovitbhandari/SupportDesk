@@ -9,7 +9,6 @@ import ticketRoutes from "./routes/ticketRoutes.js";
 import streamRoutes from "./routes/streamRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-import playgroundRoutes from "./routes/playgroundRoutes.js";
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
@@ -58,7 +57,6 @@ app.get("/api/tickets/:ticketId/stream", requireAuth, handleStream);
 app.use("/api/profile", profileRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/queues", requireAuth, allowRoles("admin"), serverAdapter.getRouter());
-app.use("/api/playground", playgroundRoutes);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   return res.status(500).json({ error: "InternalServerError", message: err.message });

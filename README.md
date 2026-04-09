@@ -15,17 +15,98 @@ SupportDesk is a lightweight, multi-tenant customer support platform with:
 
 ```text
 SupportDesk/
-├── apps/
-│   ├── backend/        # Express API, auth, RBAC, tickets, SSE, worker
-│   └── frontend/       # React + Vite UI (admin/agent/customer workspaces)
-├── packages/
-│   └── db/             # SQL migrations, seed data, db scripts
-├── docs/
+├── apps
+│   ├── backend
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   ├── .env.example
+│   │   └── src
+│   │       ├── app.ts
+│   │       ├── server.ts
+│   │       ├── worker.ts
+│   │       ├── config.ts
+│   │       ├── middleware
+│   │       │   ├── auth.ts
+│   │       │   └── rbac.ts
+│   │       ├── lib
+│   │       │   ├── db.ts
+│   │       │   ├── redis.ts
+│   │       │   ├── events.ts
+│   │       │   ├── queues.ts
+│   │       │   ├── types.ts
+│   │       │   └── validation.ts
+│   │       ├── routes
+│   │       │   ├── authRoutes.ts
+│   │       │   ├── organizationRoutes.ts
+│   │       │   ├── userRoutes.ts
+│   │       │   ├── ticketRoutes.ts
+│   │       │   ├── streamRoutes.ts
+│   │       │   ├── profileRoutes.ts
+│   │       │   └── adminRoutes.ts
+│   │       └── scripts
+│   │           └── sprint3Smoke.ts
+│   └── frontend
+│       ├── package.json
+│       ├── README.md
+│       ├── index.html
+│       ├── vite.config.ts
+│       ├── tsconfig.json
+│       └── src
+│           ├── main.tsx
+│           ├── App.tsx
+│           ├── styles.css
+│           ├── api
+│           │   ├── client.ts
+│           │   └── endpoints.ts
+│           ├── hooks
+│           │   ├── useAuth.tsx
+│           │   └── useSseMessages.ts
+│           ├── components
+│           │   ├── Layout.tsx
+│           │   ├── ProtectedRoute.tsx
+│           │   └── ChatPanel.tsx
+│           ├── pages
+│           │   ├── LoginPage.tsx
+│           │   ├── SignupPage.tsx
+│           │   ├── UnauthorizedPage.tsx
+│           │   ├── ProfilePage.tsx
+│           │   ├── DashboardRouter.tsx
+│           │   ├── AdminDashboard.tsx
+│           │   ├── AgentDashboard.tsx
+│           │   ├── UserDashboard.tsx
+│           │   ├── ViewsPage.tsx
+│           │   ├── TicketsPage.tsx
+│           │   └── CustomersPage.tsx
+│           └── types
+│               └── index.ts
+├── packages
+│   └── db
+│       ├── package.json
+│       ├── src
+│       │   ├── client.ts
+│       │   ├── config.ts
+│       │   ├── schema.ts
+│       │   └── scripts
+│       │       ├── migrate.ts
+│       │       ├── seed.ts
+│       │       ├── rollback.ts
+│       │       └── verifyIsolation.ts
+│       └── migrations
+│           ├── 001_init_schema.sql
+│           ├── 002_enable_rls.sql
+│           ├── 003_seed.sql
+│           ├── 004_fix_rls_recursion.sql
+│           ├── 005_add_manual_support_tables.sql
+│           ├── 006_hash_legacy_passwords.sql
+│           └── 999_rollback_sprint1.sql
+├── docs
 │   ├── database-schema.md
-│   └── images/
+│   └── images
 │       └── admin-workspace.png
-├── docker-compose.yml  # Postgres + Redis + Mailhog
-└── package.json        # Monorepo scripts
+├── docker-compose.yml
+├── .env.example
+├── package.json
+└── README.md
 ```
 
 ## Prerequisites (install once)
