@@ -7,7 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,green \"npm run api:dev\" \"npm run web:dev\"",
+    "dev": "npm run db:reset && npm run db:migrate && npm run db:seed && concurrently -k -n api,web -c blue,green \"npm run api:dev\" \"npm run web:dev\"",
+    "db:reset": "docker compose down -v --remove-orphans && docker compose up -d db redis mailhog",
     "db:up": "docker compose up -d db redis mailhog",
     "db:down": "docker compose down",
     "db:migrate": "npm --workspace @zendesk-lite/db run migrate",
