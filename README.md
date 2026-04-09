@@ -127,13 +127,27 @@ From the repository root:
    npm install
    ```
 
-2. Start the app (API + frontend together)
+2. Start local services (database, redis, mail testing)
+   ```bash
+   npm run db:up
+   ```
+
+3. Apply database migrations
+   ```bash
+   npm run db:migrate
+   ```
+
+4. Seed sample users and data
+   ```bash
+   npm run db:seed
+   ```
+
+5. Start the app (API + frontend together)
    ```bash
    npm run dev
    ```
-   This command resets the local dev stack, runs DB migrations/seeding, and then starts API + frontend.
 
-3. Open the app
+6. Open the app
    - Frontend UI: `http://localhost:5173`
    - API health check: `http://localhost:4000/health`
 

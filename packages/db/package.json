@@ -1,5 +1,5 @@
 {
-  "name": "@supportdesk/db",
+  "name": "@zendesk-lite/db",
   "private": true,
   "version": "0.1.0",
   "type": "module",
