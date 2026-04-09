@@ -55,6 +55,8 @@ SupportDesk/
 │           ├── main.tsx
 │           ├── App.tsx
 │           ├── styles.css
+│           ├── lib
+│           │   └── theme.ts
 │           ├── api
 │           │   ├── client.ts
 │           │   └── endpoints.ts
@@ -67,7 +69,6 @@ SupportDesk/
 │           │   └── ChatPanel.tsx
 │           ├── pages
 │           │   ├── LoginPage.tsx
-│           │   ├── SignupPage.tsx
 │           │   ├── UnauthorizedPage.tsx
 │           │   ├── ProfilePage.tsx
 │           │   ├── DashboardRouter.tsx
@@ -98,6 +99,8 @@ SupportDesk/
 │           ├── 004_fix_rls_recursion.sql
 │           ├── 005_add_manual_support_tables.sql
 │           ├── 006_hash_legacy_passwords.sql
+│           ├── 007_add_user_settings_fields.sql
+│           ├── 008_enforce_light_dark_theme.sql
 │           └── 999_rollback_sprint1.sql
 ├── docs
 │   ├── database-schema.md
@@ -124,27 +127,13 @@ From the repository root:
    npm install
    ```
 
-2. Start local services (database, redis, mail testing)
-   ```bash
-   npm run db:up
-   ```
-
-3. Apply database migrations
-   ```bash
-   npm run db:migrate
-   ```
-
-4. Seed sample users and data
-   ```bash
-   npm run db:seed
-   ```
-
-5. Start the app (API + frontend together)
+2. Start the app (API + frontend together)
    ```bash
    npm run dev
    ```
+   This command resets the local dev stack, runs DB migrations/seeding, and then starts API + frontend.
 
-6. Open the app
+3. Open the app
    - Frontend UI: `http://localhost:5173`
    - API health check: `http://localhost:4000/health`
 
@@ -153,7 +142,7 @@ From the repository root:
 - Admin: `amy.admin@acme.com`
 - Agent: `adam.agent@acme.com`
 - Customer: `alice.customer@acme.com`
-- Password (all seeded users): `hashed-password`
+- Password (all seeded users, type exactly): `hashed-password`
 
 ## Useful commands
 

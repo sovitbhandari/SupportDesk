@@ -1,27 +1,11 @@
 import { apiRequest } from "./client";
-import type { Assignment, LoginResponse, Message, RegisterResponse, Ticket } from "../types";
+import type { Assignment, LoginResponse, Message, Ticket } from "../types";
 
 export async function login(email: string, password: string) {
   return apiRequest<LoginResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password })
   });
-}
-
-export async function register(payload: {
-  fullName: string;
-  email: string;
-  password: string;
-  organizationName: string;
-  organizationSlug?: string;
-}) {
-  return apiRequest<RegisterResponse>(
-    "/api/auth/register",
-    {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }
-  );
 }
 
 export async function me(token: string) {
@@ -39,9 +23,18 @@ export async function getProfile(token: string) {
       organization_id: string;
       email: string;
       full_name: string;
+      preferred_name: string | null;
+      preferred_theme: "light" | "dark";
       is_active: boolean;
       created_at: string;
       updated_at: string;
+      organization_name: string;
+      organization_slug: string;
+      last_login_at: string;
+      current_session_id: string | null;
+      current_session_created_at: string | null;
+      current_session_ip: string | null;
+      current_session_user_agent: string | null;
     };
   }>("/api/profile/me", undefined, token);
   return result.data;
@@ -49,9 +42,22 @@ export async function getProfile(token: string) {
 
 export async function updateProfile(
   token: string,
-  payload: { fullName?: string; email?: string }
+  payload: {
+    preferredName?: string;
+    fullName?: string;
+    email?: string;
+    preferredTheme?: "light" | "dark";
+  }
 ) {
-  const result = await apiRequest<{ data: { id: string; email: string; full_name: string } }>(
+  const result = await apiRequest<{
+    data: {
+      id: string;
+      email: string;
+      full_name: string;
+      preferred_name: string | null;
+      preferred_theme: "light" | "dark";
+    };
+  }>(
     "/api/profile/me",
     {
       method: "PATCH",
@@ -60,20 +66,6 @@ export async function updateProfile(
     token
   );
   return result.data;
-}
-
-export async function updatePassword(
-  token: string,
-  payload: { currentPassword: string; newPassword: string }
-) {
-  return apiRequest<{ message: string }>(
-    "/api/profile/me/password",
-    {
-      method: "PATCH",
-      body: JSON.stringify(payload)
-    },
-    token
-  );
 }
 
 export async function listEmployees(token: string) {

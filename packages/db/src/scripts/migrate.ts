@@ -7,7 +7,9 @@ const migrationFiles = [
   "002_enable_rls.sql",
   "004_fix_rls_recursion.sql",
   "005_add_manual_support_tables.sql",
-  "006_hash_legacy_passwords.sql"
+  "006_hash_legacy_passwords.sql",
+  "007_add_user_settings_fields.sql",
+  "008_enforce_light_dark_theme.sql"
 ];
 
 async function run() {

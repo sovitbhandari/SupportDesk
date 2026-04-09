@@ -1,5 +1,4 @@
 import { Router } from "express";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { pool } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -9,21 +8,65 @@ import type { AuthedRequest } from "../lib/types.js";
 const router = Router();
 
 const updateProfileSchema = z.object({
+  preferredName: z.string().min(2).optional(),
   fullName: z.string().min(2).optional(),
-  email: z.string().email().optional()
-});
-
-const updatePasswordSchema = z.object({
-  currentPassword: z.string().min(8),
-  newPassword: z.string().min(8)
+  email: z.string().email().optional(),
+  preferredTheme: z.enum(["light", "dark"]).optional()
 });
 
 router.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   const result = await pool.query(
     `
-    SELECT id, organization_id, email, full_name, is_active, created_at, updated_at
-    FROM users
-    WHERE id = $1 AND organization_id = $2
+    SELECT
+      u.id,
+      u.organization_id,
+      u.email,
+      u.full_name,
+      u.preferred_name,
+      u.preferred_theme,
+      u.is_active,
+      u.created_at,
+      u.updated_at,
+      o.name AS organization_name,
+      o.slug AS organization_slug,
+      COALESCE((
+        SELECT s.created_at
+        FROM sessions s
+        WHERE s.user_id = u.id
+        ORDER BY s.created_at DESC
+        LIMIT 1
+      ), u.created_at) AS last_login_at,
+      (
+        SELECT s.id
+        FROM sessions s
+        WHERE s.user_id = u.id
+        ORDER BY s.created_at DESC
+        LIMIT 1
+      ) AS current_session_id,
+      (
+        SELECT s.created_at
+        FROM sessions s
+        WHERE s.user_id = u.id
+        ORDER BY s.created_at DESC
+        LIMIT 1
+      ) AS current_session_created_at,
+      (
+        SELECT s.ip_address
+        FROM sessions s
+        WHERE s.user_id = u.id
+        ORDER BY s.created_at DESC
+        LIMIT 1
+      ) AS current_session_ip,
+      (
+        SELECT s.user_agent
+        FROM sessions s
+        WHERE s.user_id = u.id
+        ORDER BY s.created_at DESC
+        LIMIT 1
+      ) AS current_session_user_agent
+    FROM users u
+    JOIN organizations o ON o.id = u.organization_id
+    WHERE u.id = $1 AND u.organization_id = $2
     LIMIT 1
     `,
     [req.auth?.userId, req.auth?.organizationId]
@@ -41,6 +84,11 @@ router.patch("/me", requireAuth, validate("body", updateProfileSchema), async (r
   const values: unknown[] = [];
   let idx = 1;
 
+  if (req.body.preferredName !== undefined) {
+    fields.push(`preferred_name = $${idx++}`);
+    values.push(req.body.preferredName);
+  }
+
   if (req.body.fullName !== undefined) {
     fields.push(`full_name = $${idx++}`);
     values.push(req.body.fullName);
@@ -49,6 +97,11 @@ router.patch("/me", requireAuth, validate("body", updateProfileSchema), async (r
   if (req.body.email !== undefined) {
     fields.push(`email = $${idx++}`);
     values.push(req.body.email);
+  }
+
+  if (req.body.preferredTheme !== undefined) {
+    fields.push(`preferred_theme = $${idx++}`);
+    values.push(req.body.preferredTheme);
   }
 
   if (fields.length === 0) {
@@ -63,7 +116,7 @@ router.patch("/me", requireAuth, validate("body", updateProfileSchema), async (r
       UPDATE users
       SET ${fields.join(", ")}, updated_at = now()
       WHERE id = $${idx++} AND organization_id = $${idx}
-      RETURNING id, organization_id, email, full_name, is_active, created_at, updated_at
+      RETURNING id, organization_id, email, full_name, preferred_name, preferred_theme, is_active, created_at, updated_at
       `,
       values
     );
@@ -81,34 +134,5 @@ router.patch("/me", requireAuth, validate("body", updateProfileSchema), async (r
     return res.status(400).json({ error: "Failed to update profile" });
   }
 });
-
-router.patch(
-  "/me/password",
-  requireAuth,
-  validate("body", updatePasswordSchema),
-  async (req: AuthedRequest, res) => {
-    const current = await pool.query(
-      "SELECT password_hash FROM users WHERE id = $1 AND organization_id = $2 LIMIT 1",
-      [req.auth?.userId, req.auth?.organizationId]
-    );
-
-    if (current.rowCount !== 1) {
-      return res.status(404).json({ error: "Profile not found" });
-    }
-
-    const ok = await bcrypt.compare(req.body.currentPassword, current.rows[0].password_hash as string);
-    if (!ok) {
-      return res.status(401).json({ error: "Current password is incorrect" });
-    }
-
-    const nextHash = await bcrypt.hash(req.body.newPassword, 10);
-    await pool.query(
-      "UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2 AND organization_id = $3",
-      [nextHash, req.auth?.userId, req.auth?.organizationId]
-    );
-
-    return res.status(200).json({ message: "Password updated" });
-  }
-);
 
 export default router;

@@ -1,5 +1,5 @@
 {
-  "name": "zendesk-lite",
+  "name": "supportdesk",
   "private": true,
   "version": "0.1.0",
   "workspaces": [
@@ -7,21 +7,22 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,green \"npm run api:dev\" \"npm run web:dev\"",
+    "dev": "npm run db:reset && npm run db:migrate && npm run db:seed && concurrently -k -n api,web -c blue,green \"npm run api:dev\" \"npm run web:dev\"",
+    "db:reset": "docker compose down -v --remove-orphans && docker compose up -d db redis mailhog",
     "db:up": "docker compose up -d db redis mailhog",
     "db:down": "docker compose down",
-    "db:migrate": "npm --workspace @zendesk-lite/db run migrate",
-    "db:seed": "npm --workspace @zendesk-lite/db run seed",
-    "db:verify-isolation": "npm --workspace @zendesk-lite/db run verify:isolation",
-    "db:rollback": "npm --workspace @zendesk-lite/db run rollback",
-    "api:dev": "npm --workspace @zendesk-lite/backend run dev",
-    "api:start": "npm --workspace @zendesk-lite/backend run start",
-    "api:typecheck": "npm --workspace @zendesk-lite/backend run typecheck",
-    "worker:start": "npm --workspace @zendesk-lite/backend run start:worker",
-    "worker:dev": "npm --workspace @zendesk-lite/backend run dev:worker",
-    "web:dev": "npm --workspace @zendesk-lite/frontend run dev",
-    "web:build": "npm --workspace @zendesk-lite/frontend run build",
-    "web:typecheck": "npm --workspace @zendesk-lite/frontend run typecheck"
+    "db:migrate": "npm --workspace @supportdesk/db run migrate",
+    "db:seed": "npm --workspace @supportdesk/db run seed",
+    "db:verify-isolation": "npm --workspace @supportdesk/db run verify:isolation",
+    "db:rollback": "npm --workspace @supportdesk/db run rollback",
+    "api:dev": "npm --workspace @supportdesk/backend run dev",
+    "api:start": "npm --workspace @supportdesk/backend run start",
+    "api:typecheck": "npm --workspace @supportdesk/backend run typecheck",
+    "worker:start": "npm --workspace @supportdesk/backend run start:worker",
+    "worker:dev": "npm --workspace @supportdesk/backend run dev:worker",
+    "web:dev": "npm --workspace @supportdesk/frontend run dev",
+    "web:build": "npm --workspace @supportdesk/frontend run build",
+    "web:typecheck": "npm --workspace @supportdesk/frontend run typecheck"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

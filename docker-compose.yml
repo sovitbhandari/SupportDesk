@@ -1,23 +1,23 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: zendesk_lite_db
+    container_name: supportdesk_db
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: zendesk_lite
+      POSTGRES_DB: supportdesk
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d zendesk_lite"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d supportdesk"]
       interval: 5s
       timeout: 5s
       retries: 10
   redis:
     image: redis:7-alpine
-    container_name: zendesk_lite_redis
+    container_name: supportdesk_redis
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
@@ -25,7 +25,7 @@ services:
       - redis_data:/data
   mailhog:
     image: mailhog/mailhog
-    container_name: zendesk_lite_mailhog
+    container_name: supportdesk_mailhog
     ports:
       - "1025:1025"
       - "8025:8025"

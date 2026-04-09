@@ -15,7 +15,7 @@ const resolvedCorsOrigins = parseCorsOrigins();
 
 export const config = {
   port: Number(process.env.PORT ?? 4000),
-  databaseUrl: process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/zendesk_lite",
+  databaseUrl: process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/supportdesk",
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
   /** Primary origin (first in list) — used where a single string is needed */
   corsOrigin: resolvedCorsOrigins[0],

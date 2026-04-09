@@ -6,7 +6,6 @@ import { ViewsPage } from "./pages/ViewsPage";
 import { TicketsPage } from "./pages/TicketsPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { LoginPage } from "./pages/LoginPage";
-import { SignupPage } from "./pages/SignupPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { UnauthorizedPage } from "./pages/UnauthorizedPage";
 
@@ -14,7 +13,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route
         element={

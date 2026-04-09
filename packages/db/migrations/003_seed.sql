@@ -20,7 +20,7 @@ all_orgs AS (
 ),
 inserted_users AS (
   INSERT INTO users (organization_id, email, full_name, password_hash)
-  SELECT ao.id, v.email, v.full_name, 'hashed-password'
+  SELECT ao.id, v.email, v.full_name, crypt('hashed-password', gen_salt('bf', 10))
   FROM all_orgs ao
   JOIN (
     VALUES
@@ -31,7 +31,12 @@ inserted_users AS (
       ('globex', 'gina.agent@globex.com', 'Gina Agent'),
       ('globex', 'grace.admin@globex.com', 'Grace Admin')
   ) AS v(org_slug, email, full_name) ON v.org_slug = ao.slug
-  ON CONFLICT (email) DO UPDATE SET updated_at = now()
+  ON CONFLICT (email) DO UPDATE
+    SET password_hash = CASE
+      WHEN users.password_hash LIKE '$2%' THEN users.password_hash
+      ELSE crypt(users.password_hash, gen_salt('bf', 10))
+    END,
+    updated_at = now()
   RETURNING id, organization_id, email
 ),
 all_users AS (
@@ -59,16 +64,37 @@ END
 ON CONFLICT (organization_id, user_id) DO NOTHING;
 
 WITH u AS (
-  SELECT id, organization_id, email FROM users
-  WHERE email IN ('alice.customer@acme.com', 'gary.customer@globex.com')
+  SELECT id, organization_id, email
+  FROM users
+  WHERE email IN (
+    'alice.customer@acme.com',
+    'adam.agent@acme.com',
+    'amy.admin@acme.com',
+    'gary.customer@globex.com',
+    'gina.agent@globex.com'
+  )
 )
 INSERT INTO tickets (organization_id, requester_id, subject, description, status, priority)
 SELECT
   u.organization_id,
   u.id,
-  CASE WHEN u.email LIKE '%acme%' THEN 'Acme billing issue' ELSE 'Globex login issue' END,
-  CASE WHEN u.email LIKE '%acme%' THEN 'Invoice mismatch for March' ELSE 'Unable to access portal' END,
+  v.subject,
+  v.description,
   'open',
-  'high'
+  v.priority::ticket_priority
 FROM u
-ON CONFLICT DO NOTHING;
+JOIN (
+  VALUES
+    ('alice.customer@acme.com', 'Billing issue: invoice mismatch', 'Invoice total does not match expected amount for March billing cycle.', 'high'),
+    ('adam.agent@acme.com', 'Login issue: cannot access account', 'User cannot sign in after password reset and receives invalid credentials error.', 'high'),
+    ('amy.admin@acme.com', 'Subscription issue: charged after cancellation', 'Customer reports recurring charge posted after confirmed cancellation date.', 'urgent'),
+    ('alice.customer@acme.com', 'Feature issue: export button not working', 'CSV export action completes with no file download in dashboard reports.', 'medium'),
+    ('adam.agent@acme.com', 'Support request: update company billing address', 'Need to update legal billing address for upcoming invoice and tax records.', 'low')
+) AS v(email, subject, description, priority) ON v.email = u.email
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM tickets t
+  WHERE t.organization_id = u.organization_id
+    AND t.requester_id = u.id
+    AND t.subject = v.subject
+);

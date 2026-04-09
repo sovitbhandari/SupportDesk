@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { login as loginRequest, me, register as registerRequest } from "../api/endpoints";
+import { login as loginRequest, me } from "../api/endpoints";
 import { apiBaseUrl, bindAccessTokenStore, getAccessToken, setAccessToken } from "../api/client";
 import type { AuthUser, Role } from "../types";
 
@@ -8,13 +8,6 @@ type AuthState = {
   user: AuthUser | null;
   isReady: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (payload: {
-    fullName: string;
-    email: string;
-    password: string;
-    organizationName: string;
-    organizationSlug?: string;
-  }) => Promise<void>;
   setUser: (user: AuthUser) => void;
   logout: () => Promise<void>;
 };
@@ -68,24 +61,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(nextUser);
   };
 
-  const register = async (payload: {
-    fullName: string;
-    email: string;
-    password: string;
-    organizationName: string;
-    organizationSlug?: string;
-  }) => {
-    const result = await registerRequest(payload);
-    const nextUser: AuthUser = {
-      userId: result.user.id,
-      organizationId: result.user.organizationId,
-      role: result.user.role as Role,
-      email: result.user.email
-    };
-    setAccessToken(result.token);
-    setUser(nextUser);
-  };
-
   const logout = async () => {
     const current = getAccessToken();
     if (current) {
@@ -104,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value = useMemo(
-    () => ({ token, user, isReady, login, register, setUser, logout }),
+    () => ({ token, user, isReady, login, setUser, logout }),
     [token, user, isReady]
   );
 

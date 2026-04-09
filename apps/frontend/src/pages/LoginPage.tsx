@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 
@@ -25,7 +25,7 @@ export function LoginPage() {
     <div className="center">
       <div className="card auth-card">
         <h2>Login</h2>
-        <p className="muted">Sign in or create a new workspace account.</p>
+        <p className="muted">Sign in to your workspace account.</p>
         <form
           className="auth-form"
           onSubmit={async (event) => {
@@ -58,9 +58,6 @@ export function LoginPage() {
           {error && <p className="warning">{error}</p>}
           <button type="submit" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</button>
         </form>
-        <p className="muted">
-          New here? <Link to="/signup">Create account</Link>
-        </p>
       </div>
     </div>
   );

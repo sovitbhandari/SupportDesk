@@ -17,14 +17,6 @@ export type LoginResponse = {
   };
 };
 
-export type RegisterResponse = LoginResponse & {
-  organization: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-};
-
 export type Ticket = {
   id: string;
   organization_id: string;

@@ -34,7 +34,7 @@ async function getUserContext(adminPool: Pool) {
 async function run() {
   const adminPool = new Pool({ connectionString: databaseUrl });
   const appUserPool = new Pool({
-    connectionString: "postgresql://app_user:app_user_password@localhost:5432/zendesk_lite"
+    connectionString: "postgresql://app_user:app_user_password@localhost:5432/supportdesk"
   });
 
   try {
