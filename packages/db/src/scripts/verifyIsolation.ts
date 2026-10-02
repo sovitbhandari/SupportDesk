@@ -34,7 +34,9 @@ async function getUserContext(adminPool: Pool) {
 async function run() {
   const adminPool = new Pool({ connectionString: databaseUrl });
   const appUserPool = new Pool({
-    connectionString: "postgresql://app_user:app_user_password@localhost:55432/supportdesk"
+    connectionString:
+      process.env.APP_DATABASE_URL ??
+      "postgresql://app_user:app_user_password@localhost:55432/supportdesk"
   });
 
   try {
