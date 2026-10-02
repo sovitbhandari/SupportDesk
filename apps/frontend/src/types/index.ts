@@ -37,6 +37,8 @@ export type Message = {
   author_id: string;
   body: string;
   created_at: string;
+  event_id?: string;
+  sequence?: number;
 };
 
 export type Assignment = {
@@ -50,6 +52,8 @@ export type Assignment = {
 
 export type SseMessageEvent = {
   type: "ticket.message.created";
+  eventId: string;
+  sequence: number;
   messageId: string;
   ticketId: string;
   organizationId: string;

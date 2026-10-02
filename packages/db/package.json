@@ -6,7 +6,12 @@
   "scripts": {
     "migrate": "tsx src/scripts/migrate.ts",
     "seed": "tsx src/scripts/seed.ts",
+    "typecheck": "tsc --noEmit",
     "verify:isolation": "tsx src/scripts/verifyIsolation.ts",
+    "verify:runtime-role": "tsx src/scripts/verifyRuntimeRole.ts",
+    "verify:assignments": "tsx src/scripts/verifyActiveAssignmentUniqueness.ts",
+    "verify:outbox": "tsx src/scripts/verifyOutbox.ts",
+    "verify:ticket-events": "tsx src/scripts/verifyTicketEventReplay.ts",
     "rollback": "tsx src/scripts/rollback.ts"
   },
   "dependencies": {

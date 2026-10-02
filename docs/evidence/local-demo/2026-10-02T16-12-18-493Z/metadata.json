@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-02T16:12:18.498Z",
+  "runId": "2026-10-02T16-12-18-493Z",
+  "status": "FAILED",
+  "commit": "43bd67e3896225efd92a1721766c9f84e89e6e34",
+  "node": "v22.16.0",
+  "host": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "arch": "arm64"
+  },
+  "workload": "Local synthetic SupportDesk verification: static checks, Dockerized PostgreSQL/Redis/MailHog, DB verifiers, ReplayLab scenarios, and benchmark plan artifact.",
+  "commands": [
+    {
+      "name": "static check",
+      "command": "npm run check",
+      "exitCode": 0,
+      "durationMs": 3076
+    },
+    {
+      "name": "docker daemon readiness",
+      "command": "docker version",
+      "exitCode": 0,
+      "durationMs": 65
+    },
+    {
+      "name": "start local dependencies",
+      "command": "docker-compose up --wait -d db redis mailhog",
+      "exitCode": 0,
+      "durationMs": 593
+    },
+    {
+      "name": "migrate database",
+      "command": "npm run db:migrate",
+      "exitCode": 1,
+      "durationMs": 851
+    }
+  ],
+  "artifacts": {
+    "commandLog": "docs/evidence/local-demo/2026-10-02T16-12-18-493Z/commands.log",
+    "dockerConfigDir": "/var/folders/kk/20hdb61d743f6qqb01zlj5q80000gn/T/supportdesk-docker-config"
+  },
+  "limitations": [
+    "Requires Docker Desktop or a compatible Docker daemon.",
+    "ReplayLab scenarios use synthetic seeded accounts/data only.",
+    "Benchmark command here creates a plan artifact; measured benchmark runs are separate."
+  ]
+}

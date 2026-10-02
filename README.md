@@ -134,8 +134,9 @@ From the repository root:
    This command resets local containers/volumes, runs migrations, seeds demo data, and then starts backend + frontend.
 
 3. Open the app
-   - Frontend UI: `http://localhost:5173`
-   - API health check: `http://localhost:4000/health`
+- Frontend UI: `http://localhost:5173`
+- API health check: `http://localhost:4000/health`
+- PostgreSQL container: `localhost:55432` mapped to container port `5432`
 
 ## Demo accounts
 
@@ -147,11 +148,38 @@ From the repository root:
 ## Useful commands
 
 ```bash
+npm run check
 npm run api:typecheck
+npm run db:typecheck
 npm run web:typecheck
+npm run web:build
 npm run db:verify-isolation
 npm run db:down
 ```
+
+## Operational endpoints
+
+- Liveness: `GET /health`
+- Readiness: `GET /readyz` checks owner DB, app DB, and Redis.
+- Metrics snapshot: `GET /metrics` returns request counts, latency buckets, process memory, queue counts, and outbox backlog age.
+
+Logs are structured JSON. `X-Request-Id` is accepted from callers or generated per request, returned on responses, and included in request/error logs. Logs intentionally avoid ticket subject/body/email values.
+
+## Architecture and evidence
+
+The main engineering contracts are documented in `docs/architecture.md`: tenant isolation, transactional outbox notification dispatch, and durable ticket-event replay over SSE.
+
+For a local reviewer with Docker running, this command runs the static checks, starts PostgreSQL/Redis/MailHog, applies migrations, seeds synthetic/demo data, runs DB verification scripts, executes ReplayLab scenarios, and writes artifacts under `docs/evidence/local-demo/<run-id>/`:
+
+```bash
+npm run evidence:local
+```
+
+If Docker or another dependency is unavailable, the command records the failed step and exits nonzero instead of reporting a fabricated pass.
+
+## CI
+
+`.github/workflows/ci.yml` runs `npm ci`, `npm run check`, migrations, seed, and DB verification scripts against PostgreSQL and Redis services. The workflow has no `|| true` fallback; command failures fail the job.
 
 ## Troubleshooting
 

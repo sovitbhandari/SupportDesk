@@ -89,7 +89,7 @@ export function AgentDashboard() {
     });
   }, []);
 
-  useSseMessages(token, onSseEvent);
+  useSseMessages(token, selectedTicket?.id ?? null, onSseEvent);
 
   return (
     <div className="workspace-grid">

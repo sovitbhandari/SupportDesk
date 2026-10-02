@@ -17,7 +17,7 @@ async function userStillValid(payload: JwtPayload): Promise<boolean> {
     `
     SELECT 1
     FROM users u
-    JOIN organization_memberships om ON om.user_id = u.id
+    JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
     JOIN roles r ON r.id = om.role_id
     WHERE u.id = $1
       AND u.organization_id = $2

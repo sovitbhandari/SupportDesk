@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-02T16:26:46.263Z",
+  "runId": "2026-10-02T16-26-46-257Z-duplicate-delivery",
+  "scenario": {
+    "name": "duplicate-delivery",
+    "version": 1,
+    "seed": 4242,
+    "dataset": {
+      "synthetic": true,
+      "organizationSlug": "acme",
+      "customerEmail": "alice.customer@acme.com"
+    },
+    "operations": [
+      {
+        "id": "op-ticket-duplicate",
+        "type": "create_ticket_with_outbox",
+        "idempotencyKey": "replaylab-duplicate-001"
+      },
+      {
+        "id": "op-dispatch-duplicate",
+        "type": "dispatch_outbox_once"
+      },
+      {
+        "id": "op-deliver-duplicate-a",
+        "type": "deliver_notification_once",
+        "duplicateDelivery": false
+      },
+      {
+        "id": "op-deliver-duplicate-b",
+        "type": "deliver_notification_once",
+        "duplicateDelivery": true
+      }
+    ],
+    "faultSchedule": [
+      {
+        "hook": "duplicate_delivery",
+        "operationId": "op-deliver-duplicate-b",
+        "action": "repeat_same_event"
+      }
+    ],
+    "timeoutMs": 15000,
+    "assertions": [
+      "single_operation_record_per_event",
+      "explicit_external_effect_state"
+    ]
+  },
+  "scenarioPath": "/Users/sovitbhandari/Documents/SupportDesk/replaylab/scenarios/duplicate-delivery.json",
+  "scenarioChecksum": "6fae57ab9a9bbbdc09c6eb2a6e0b03ff00484fda0add51886a71b2fd713589fd",
+  "commit": "43bd67e3896225efd92a1721766c9f84e89e6e34",
+  "versions": {
+    "node": "v22.16.0"
+  },
+  "host": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "arch": "arm64"
+  },
+  "artifacts": {
+    "journal": "journal.jsonl",
+    "report": "report.json",
+    "reportMarkdown": "report.md"
+  },
+  "errors": []
+}

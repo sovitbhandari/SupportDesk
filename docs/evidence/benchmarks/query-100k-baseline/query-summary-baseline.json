@@ -1,0 +1,18 @@
+{
+  "count": 30,
+  "ok": 30,
+  "errors": 0,
+  "p50": 3,
+  "p95": 4.14,
+  "p99": 4.55,
+  "endpoints": {
+    "db.ticket_cursor_page": {
+      "count": 30,
+      "ok": 30,
+      "errors": 0,
+      "p50": 3,
+      "p95": 4.14,
+      "p99": 4.55
+    }
+  }
+}

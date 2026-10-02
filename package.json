@@ -22,7 +22,17 @@
     "worker:dev": "npm --workspace @zendesk-lite/backend run dev:worker",
     "web:dev": "npm --workspace @zendesk-lite/frontend run dev",
     "web:build": "npm --workspace @zendesk-lite/frontend run build",
-    "web:typecheck": "npm --workspace @zendesk-lite/frontend run typecheck"
+    "web:typecheck": "npm --workspace @zendesk-lite/frontend run typecheck",
+    "db:typecheck": "npm --workspace @zendesk-lite/db run typecheck",
+    "check": "npm run api:typecheck && npm run db:typecheck && npm run web:typecheck && npm run web:build",
+    "bench": "node benchmarks/supportdesk/harness.mjs",
+    "bench:seed": "node benchmarks/supportdesk/harness.mjs seed",
+    "bench:query": "node benchmarks/supportdesk/harness.mjs query",
+    "bench:api": "node benchmarks/supportdesk/harness.mjs api",
+    "bench:recovery": "node benchmarks/supportdesk/harness.mjs recovery",
+    "bench:sse": "node benchmarks/supportdesk/harness.mjs sse",
+    "replaylab": "node replaylab/cli.mjs",
+    "evidence:local": "node scripts/local-evidence.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

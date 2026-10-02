@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-02T16:16:04.958Z",
+  "runId": "2026-10-02T16-16-04-953Z",
+  "status": "FAILED",
+  "commit": "43bd67e3896225efd92a1721766c9f84e89e6e34",
+  "node": "v22.16.0",
+  "host": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "arch": "arm64"
+  },
+  "workload": "Local synthetic SupportDesk verification: static checks, Dockerized PostgreSQL/Redis/MailHog, DB verifiers, ReplayLab scenarios, and benchmark plan artifact.",
+  "commands": [
+    {
+      "name": "static check",
+      "command": "npm run check",
+      "exitCode": 0,
+      "durationMs": 3108
+    },
+    {
+      "name": "docker daemon readiness",
+      "command": "docker version",
+      "exitCode": 0,
+      "durationMs": 19
+    },
+    {
+      "name": "start local dependencies",
+      "command": "docker-compose up --wait -d db redis mailhog",
+      "exitCode": 0,
+      "durationMs": 584
+    },
+    {
+      "name": "migrate database",
+      "command": "npm run db:migrate",
+      "exitCode": 0,
+      "durationMs": 442
+    },
+    {
+      "name": "seed synthetic/demo data",
+      "command": "npm run db:seed",
+      "exitCode": 0,
+      "durationMs": 699
+    },
+    {
+      "name": "verify tenant isolation",
+      "command": "npm run db:verify-isolation",
+      "exitCode": 0,
+      "durationMs": 293
+    },
+    {
+      "name": "verify runtime role",
+      "command": "npm --workspace @zendesk-lite/db run verify:runtime-role",
+      "exitCode": 0,
+      "durationMs": 240
+    },
+    {
+      "name": "verify active assignment uniqueness",
+      "command": "npm --workspace @zendesk-lite/db run verify:assignments",
+      "exitCode": 0,
+      "durationMs": 236
+    },
+    {
+      "name": "verify transactional outbox",
+      "command": "npm --workspace @zendesk-lite/db run verify:outbox",
+      "exitCode": 1,
+      "durationMs": 236
+    }
+  ],
+  "artifacts": {
+    "commandLog": "docs/evidence/local-demo/2026-10-02T16-16-04-953Z/commands.log",
+    "dockerConfigDir": "/var/folders/kk/20hdb61d743f6qqb01zlj5q80000gn/T/supportdesk-docker-config"
+  },
+  "limitations": [
+    "Requires Docker Desktop or a compatible Docker daemon.",
+    "ReplayLab scenarios use synthetic seeded accounts/data only.",
+    "Benchmark command here creates a plan artifact; measured benchmark runs are separate."
+  ]
+}

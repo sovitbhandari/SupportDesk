@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-02T16:16:39.490Z",
+  "runId": "2026-10-02T16-16-39-484Z-outbox-redis-outage",
+  "scenario": {
+    "name": "outbox-redis-outage",
+    "version": 1,
+    "seed": 4242,
+    "dataset": {
+      "synthetic": true,
+      "organizationSlug": "acme",
+      "customerEmail": "alice.customer@acme.com"
+    },
+    "operations": [
+      {
+        "id": "op-ticket-outage",
+        "type": "create_ticket_with_outbox",
+        "idempotencyKey": "replaylab-outage-001"
+      },
+      {
+        "id": "op-dispatch-outage",
+        "type": "dispatch_outbox_once"
+      },
+      {
+        "id": "op-dispatch-recovery",
+        "type": "dispatch_outbox_once"
+      }
+    ],
+    "faultSchedule": [
+      {
+        "hook": "after_db_commit_before_enqueue",
+        "operationId": "op-dispatch-outage",
+        "action": "redis_unavailable"
+      }
+    ],
+    "timeoutMs": 15000,
+    "assertions": [
+      "eventual_disposition_for_committed_events",
+      "no_secret_metadata"
+    ]
+  },
+  "scenarioPath": "/Users/sovitbhandari/Documents/SupportDesk/replaylab/scenarios/outbox-redis-outage.json",
+  "scenarioChecksum": "800b31efd382e6ffc6a028e7da41d4cf09493dd07d0e43ae2620bc03ca9328ef",
+  "commit": "43bd67e3896225efd92a1721766c9f84e89e6e34",
+  "versions": {
+    "node": "v22.16.0"
+  },
+  "host": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "arch": "arm64"
+  },
+  "artifacts": {
+    "journal": "journal.jsonl",
+    "report": "report.json",
+    "reportMarkdown": "report.md"
+  },
+  "errors": []
+}

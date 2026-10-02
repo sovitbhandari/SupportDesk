@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-02T16:27:46.018Z",
+  "runId": "query-10k-baseline-fixed",
+  "mode": "query",
+  "exploratory": true,
+  "commit_sha": "43bd67e3896225efd92a1721766c9f84e89e6e34",
+  "code_changes": ".env.example                               |   4 +-\n .gitignore                                 |   4 +-\n README.md                                  |  32 +-\n apps/backend/.env.example                  |   8 +-\n apps/backend/src/app.ts                    |  83 ++++-\n apps/backend/src/config.ts                 |   5 +-\n apps/backend/src/lib/db.ts                 |  64 ++++\n apps/backend/src/lib/events.ts             |   2 +\n apps/backend/src/lib/queues.ts             |   9 +-\n apps/backend/src/middleware/auth.ts        |   2 +-\n apps/backend/src/routes/adminRoutes.ts     |  12 +-\n apps/backend/src/routes/authRoutes.ts      |   4 +-\n apps/backend/src/routes/streamRoutes.ts    | 130 +++++++-\n apps/backend/src/routes/ticketRoutes.ts    | 516 +++++++++++++++++++----------\n apps/backend/src/server.ts                 |  36 +-\n apps/backend/src/worker.ts                 | 446 ++++++++++++++++++++++---\n apps/frontend/src/hooks/useSseMessages.ts  |  40 ++-\n apps/frontend/src/pages/AgentDashboard.tsx |   2 +-\n apps/frontend/src/pages/UserDashboard.tsx  |   4 +-\n apps/frontend/src/types/index.ts           |   4 +\n docker-compose.yml                         |   2 +-\n package.json                               |  12 +-\n packages/db/migrations/003_seed.sql        |   3 +-\n packages/db/package.json                   |   5 +\n packages/db/src/config.ts                  |   2 +-\n packages/db/src/schema.ts                  | 107 +++++-\n packages/db/src/scripts/migrate.ts         |   5 +-\n packages/db/src/scripts/verifyIsolation.ts |   2 +-\n 28 files changed, 1281 insertions(+), 264 deletions(-)",
+  "versions": {
+    "node": "v22.16.0",
+    "npm": "10.9.2",
+    "dockerServer": null
+  },
+  "os": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "arch": "arm64",
+    "cpus": [
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro",
+      "Apple M5 Pro"
+    ],
+    "totalMemoryBytes": 25769803776
+  },
+  "placement": {
+    "app": "local",
+    "generator": "local-node-process",
+    "apiBase": "http://localhost:4000"
+  },
+  "dockerResourceLimits": {
+    "source": "not detected by harness; record Docker Desktop limits manually if applicable"
+  },
+  "schemaIndexes": {
+    "baseline": "no benchmark composite ticket cursor index",
+    "candidate": "benchmark_tickets_org_created_id_idx on tickets(organization_id, created_at DESC, id DESC)"
+  },
+  "dataset": {
+    "synthetic": true,
+    "expectedSeed": 4242
+  },
+  "workload": "ticket list cursor query",
+  "commands": {
+    "invoked": "node benchmarks/supportdesk/harness.mjs query --variant baseline --seed 4242 --run-id query-10k-baseline-fixed"
+  },
+  "durations": {},
+  "seed": 4242,
+  "repetitions": 30,
+  "exclusions": [],
+  "rawArtifactPaths": [],
+  "errors": [
+    "{\"name\":\"AggregateError\",\"message\":null,\"code\":\"EPERM\",\"causes\":[{\"name\":\"Error\",\"message\":\"connect EPERM ::1:55432 - Local (:::0)\",\"code\":\"EPERM\",\"address\":\"::1\",\"port\":55432},{\"name\":\"Error\",\"message\":\"connect EPERM 127.0.0.1:55432 - Local (0.0.0.0:0)\",\"code\":\"EPERM\",\"address\":\"127.0.0.1\",\"port\":55432}]}",
+    "{\"name\":\"AggregateError\",\"message\":null,\"code\":\"EPERM\",\"causes\":[{\"name\":\"Error\",\"message\":\"connect EPERM ::1:55432 - Local (:::0)\",\"code\":\"EPERM\",\"address\":\"::1\",\"port\":55432},{\"name\":\"Error\",\"message\":\"connect EPERM 127.0.0.1:55432 - Local (0.0.0.0:0)\",\"code\":\"EPERM\",\"address\":\"127.0.0.1\",\"port\":55432}]}"
+  ],
+  "cachePolicy": "warm-cache unless DB is restarted externally before run"
+}

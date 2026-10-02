@@ -75,9 +75,9 @@ export function UserDashboard() {
     });
   }, []);
 
-  useSseMessages(token, onSseEvent);
-
   const selectedTicket = myTickets.find((ticket) => ticket.id === selectedTicketId) ?? null;
+
+  useSseMessages(token, selectedTicket?.id ?? null, onSseEvent);
 
   return (
     <div className="workspace-grid">

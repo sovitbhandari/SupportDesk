@@ -31,7 +31,7 @@ router.get("/agents", requireAuth, allowRoles("admin"), async (req: AuthedReques
       u.is_active,
       COUNT(t.id)::int AS ticket_count
     FROM users u
-    JOIN organization_memberships om ON om.user_id = u.id
+    JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
     JOIN roles r ON r.id = om.role_id
     LEFT JOIN ticket_assignments ta
       ON ta.agent_id = u.id
@@ -102,7 +102,7 @@ router.get("/employees", requireAuth, allowRoles("admin"), async (req: AuthedReq
     `
     SELECT u.id, u.email, u.full_name, u.is_active, r.key AS role, u.created_at
     FROM users u
-    JOIN organization_memberships om ON om.user_id = u.id
+    JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
     JOIN roles r ON r.id = om.role_id
     WHERE u.organization_id = $1
     ORDER BY u.created_at DESC
@@ -131,7 +131,7 @@ router.patch(
         `
         SELECT u.id, u.is_active, r.key AS role
         FROM users u
-        JOIN organization_memberships om ON om.user_id = u.id
+        JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
         JOIN roles r ON r.id = om.role_id
         WHERE u.id = $1 AND u.organization_id = $2
         LIMIT 1
@@ -159,7 +159,7 @@ router.patch(
           `
           SELECT COUNT(*)::int AS active_admins
           FROM users u
-          JOIN organization_memberships om ON om.user_id = u.id
+          JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
           JOIN roles r ON r.id = om.role_id
           WHERE u.organization_id = $1
             AND u.is_active = true
@@ -202,7 +202,7 @@ router.patch(
         `
         SELECT u.id, u.email, u.full_name, u.is_active, r.key AS role
         FROM users u
-        JOIN organization_memberships om ON om.user_id = u.id
+        JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
         JOIN roles r ON r.id = om.role_id
         WHERE u.id = $1 AND u.organization_id = $2
         LIMIT 1
@@ -246,7 +246,7 @@ router.get("/metrics", requireAuth, allowRoles("admin"), async (req: AuthedReque
     `
     SELECT u.id, u.full_name, COUNT(ta.id)::int AS assigned_count
     FROM users u
-    JOIN organization_memberships om ON om.user_id = u.id
+    JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
     JOIN roles r ON r.id = om.role_id
     LEFT JOIN ticket_assignments ta
       ON ta.agent_id = u.id

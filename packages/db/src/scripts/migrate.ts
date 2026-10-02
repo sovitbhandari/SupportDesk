@@ -9,7 +9,10 @@ const migrationFiles = [
   "005_add_manual_support_tables.sql",
   "006_hash_legacy_passwords.sql",
   "007_add_user_settings_fields.sql",
-  "008_enforce_light_dark_theme.sql"
+  "008_enforce_light_dark_theme.sql",
+  "009_unique_active_ticket_assignment.sql",
+  "010_add_transactional_outbox.sql",
+  "011_add_ticket_message_events.sql"
 ];
 
 async function run() {

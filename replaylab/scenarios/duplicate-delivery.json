@@ -1,0 +1,43 @@
+{
+  "name": "duplicate-delivery",
+  "version": 1,
+  "seed": 4242,
+  "dataset": {
+    "synthetic": true,
+    "organizationSlug": "acme",
+    "customerEmail": "alice.customer@acme.com"
+  },
+  "operations": [
+    {
+      "id": "op-ticket-duplicate",
+      "type": "create_ticket_with_outbox",
+      "idempotencyKey": "replaylab-duplicate-001"
+    },
+    {
+      "id": "op-dispatch-duplicate",
+      "type": "dispatch_outbox_once"
+    },
+    {
+      "id": "op-deliver-duplicate-a",
+      "type": "deliver_notification_once",
+      "duplicateDelivery": false
+    },
+    {
+      "id": "op-deliver-duplicate-b",
+      "type": "deliver_notification_once",
+      "duplicateDelivery": true
+    }
+  ],
+  "faultSchedule": [
+    {
+      "hook": "duplicate_delivery",
+      "operationId": "op-deliver-duplicate-b",
+      "action": "repeat_same_event"
+    }
+  ],
+  "timeoutMs": 15000,
+  "assertions": [
+    "single_operation_record_per_event",
+    "explicit_external_effect_state"
+  ]
+}

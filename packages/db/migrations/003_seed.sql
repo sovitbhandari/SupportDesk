@@ -89,7 +89,8 @@ JOIN (
     ('adam.agent@acme.com', 'Login issue: cannot access account', 'User cannot sign in after password reset and receives invalid credentials error.', 'high'),
     ('amy.admin@acme.com', 'Subscription issue: charged after cancellation', 'Customer reports recurring charge posted after confirmed cancellation date.', 'urgent'),
     ('alice.customer@acme.com', 'Feature issue: export button not working', 'CSV export action completes with no file download in dashboard reports.', 'medium'),
-    ('adam.agent@acme.com', 'Support request: update company billing address', 'Need to update legal billing address for upcoming invoice and tax records.', 'low')
+    ('adam.agent@acme.com', 'Support request: update company billing address', 'Need to update legal billing address for upcoming invoice and tax records.', 'low'),
+    ('gary.customer@globex.com', 'Globex support request: invoice contact update', 'Synthetic cross-tenant ticket used for local isolation verification.', 'medium')
 ) AS v(email, subject, description, priority) ON v.email = u.email
 WHERE NOT EXISTS (
   SELECT 1

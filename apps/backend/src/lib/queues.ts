@@ -3,14 +3,11 @@ import { bullmqConnection } from "./redis.js";
 
 export const ticketNotificationsQueueName = "ticket-notifications";
 
-export type TicketCreatedJob = {
-  ticketId: string;
-  organizationId: string;
-  requesterId: string;
-  subject: string;
+export type OutboxNotificationJob = {
+  eventId: string;
 };
 
-export const ticketNotificationsQueue = new Queue<TicketCreatedJob>(ticketNotificationsQueueName, {
+export const ticketNotificationsQueue = new Queue<OutboxNotificationJob>(ticketNotificationsQueueName, {
   connection: bullmqConnection,
   defaultJobOptions: {
     attempts: 3,

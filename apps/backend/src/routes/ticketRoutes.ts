@@ -1,11 +1,11 @@
 import { Router } from "express";
+import type { QueryResult, QueryResultRow } from "pg";
 import { z } from "zod";
-import { pool } from "../lib/db.js";
+import { pool, withTenantTransaction } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/rbac.js";
 import { validate } from "../lib/validation.js";
 import type { AuthedRequest } from "../lib/types.js";
-import { ticketNotificationsQueue } from "../lib/queues.js";
 import { publishMessageEvent } from "../lib/events.js";
 
 const router = Router();
@@ -33,8 +33,31 @@ const assignmentSchema = z.object({
   agentId: z.string().uuid().optional()
 });
 
-async function getTicketAccessContext(ticketId: string, organizationId: string) {
-  const result = await pool.query(
+type Queryable = {
+  query<R extends QueryResultRow = QueryResultRow>(
+    text: string,
+    values?: unknown[]
+  ): Promise<QueryResult<R>>;
+};
+
+function paginationLimit(rawLimit: unknown, fallback = 50, max = 100) {
+  const parsed = Number(rawLimit);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.min(parsed, max);
+}
+
+function sequenceCursor(rawCursor: unknown) {
+  if (typeof rawCursor !== "string" || rawCursor.trim() === "") {
+    return 0;
+  }
+  const parsed = Number(rawCursor);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+async function getTicketAccessContext(ticketId: string, organizationId: string, client: Queryable = pool) {
+  const result = await client.query(
     `
     SELECT
       t.id,
@@ -64,6 +87,9 @@ router.get("/", requireAuth, async (req: AuthedRequest, res) => {
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const assignedTo = typeof req.query.assigned_to === "string" ? req.query.assigned_to : undefined;
   const unassignedOnly = req.query.unassigned === "true";
+  const limit = paginationLimit(req.query.limit, 50, 100);
+  const cursorCreatedAt = typeof req.query.cursor_created_at === "string" ? req.query.cursor_created_at : undefined;
+  const cursorId = typeof req.query.cursor_id === "string" ? req.query.cursor_id : undefined;
   const where: string[] = ["t.organization_id = $1"];
   const values: unknown[] = [req.auth?.organizationId];
   let idx = 2;
@@ -102,6 +128,11 @@ router.get("/", requireAuth, async (req: AuthedRequest, res) => {
     values.push(req.auth.userId);
     idx += 1;
   }
+  if (cursorCreatedAt && cursorId) {
+    where.push(`(t.created_at, t.id) < ($${idx++}::timestamptz, $${idx++}::uuid)`);
+    values.push(cursorCreatedAt, cursorId);
+  }
+  values.push(limit + 1);
 
   const result = await pool.query(
     `
@@ -118,12 +149,24 @@ router.get("/", requireAuth, async (req: AuthedRequest, res) => {
       ) AS active_assignment_agent_id
     FROM tickets t
     WHERE ${where.join(" AND ")}
-    ORDER BY t.created_at DESC
+    ORDER BY t.created_at DESC, t.id DESC
+    LIMIT $${idx}
     `,
     values
   );
 
-  return res.status(200).json({ data: result.rows });
+  const rows = result.rows.slice(0, limit);
+  const last = rows[rows.length - 1];
+  return res.status(200).json({
+    data: rows,
+    page: {
+      limit,
+      hasMore: result.rows.length > limit,
+      nextCursor: last
+        ? { createdAt: last.created_at, id: last.id }
+        : null
+    }
+  });
 });
 
 router.get("/:id", requireAuth, validate("params", ticketIdParamsSchema), async (req: AuthedRequest, res) => {
@@ -168,49 +211,63 @@ router.get("/:id", requireAuth, validate("params", ticketIdParamsSchema), async 
 });
 
 router.post("/", requireAuth, validate("body", ticketCreateSchema), async (req: AuthedRequest, res) => {
-  const requesterId = req.auth?.userId;
-  const result = await pool.query(
-    `
-    INSERT INTO tickets(organization_id, requester_id, subject, description, status, priority)
-    VALUES ($1, $2, $3, $4, 'open', $5)
-    RETURNING id, organization_id, requester_id, subject, description, status, priority, created_at, updated_at
-    `,
-    [req.auth?.organizationId, requesterId, req.body.subject, req.body.description, req.body.priority]
-  );
+  if (!req.auth) {
+    return res.status(401).json({ error: "Unauthenticated" });
+  }
+  const auth = req.auth;
 
-  const ticket = result.rows[0] as {
-    id: string;
-    organization_id: string;
-    requester_id: string;
-    subject: string;
-    created_at: string;
-  };
+  const result = await withTenantTransaction(auth, async (client) => {
+    const ticketResult = await client.query(
+      `
+      INSERT INTO tickets(organization_id, requester_id, subject, description, status, priority)
+      VALUES ($1, $2, $3, $4, 'open', $5)
+      RETURNING id, organization_id, requester_id, subject, description, status, priority, created_at, updated_at
+      `,
+      [auth.organizationId, auth.userId, req.body.subject, req.body.description, req.body.priority]
+    );
 
-  // Queue email notification asynchronously; API response is not blocked.
-  void ticketNotificationsQueue
-    .add("ticket-created-email", {
-      ticketId: ticket.id,
-      organizationId: ticket.organization_id,
-      requesterId: ticket.requester_id,
-      subject: ticket.subject
-    })
-    .then(async () => {
-      await pool.query(
-        `INSERT INTO notification_jobs(organization_id, type, payload, status, attempts) VALUES($1, $2, $3::jsonb, 'queued', 0)`,
-        [
-          ticket.organization_id,
-          "ticket-created",
-          JSON.stringify({
-            ticketId: ticket.id,
-            requesterId: ticket.requester_id,
-            subject: ticket.subject
-          })
-        ]
-      );
-    })
-    .catch((error: Error) => {
-      console.error("Failed to enqueue ticket notification job:", error.message);
-    });
+    const ticket = ticketResult.rows[0] as {
+      id: string;
+      organization_id: string;
+      requester_id: string;
+      priority: string;
+      status: string;
+    };
+
+    await client.query(
+      `
+      INSERT INTO outbox_events(organization_id, event_type, schema_version, aggregate_type, aggregate_id, payload)
+      VALUES($1, 'ticket.created.notification_requested', 1, 'ticket', $2, $3::jsonb)
+      `,
+      [
+        ticket.organization_id,
+        ticket.id,
+        JSON.stringify({
+          ticketId: ticket.id,
+          requesterId: ticket.requester_id
+        })
+      ]
+    );
+
+    await client.query(
+      `
+      INSERT INTO audit_logs(organization_id, actor_user_id, event_type, payload)
+      VALUES($1, $2, 'ticket.created', $3::jsonb)
+      `,
+      [
+        ticket.organization_id,
+        auth.userId,
+        JSON.stringify({
+          ticketId: ticket.id,
+          requesterId: ticket.requester_id,
+          priority: ticket.priority,
+          status: ticket.status
+        })
+      ]
+    );
+
+    return ticketResult;
+  });
 
   return res.status(201).json({ data: result.rows[0] });
 });
@@ -292,18 +349,45 @@ router.get("/:id/messages", requireAuth, validate("params", ticketIdParamsSchema
   if (req.auth?.role === "agent" && ticket.active_assignment_agent_id !== req.auth.userId) {
     return res.status(403).json({ error: "Forbidden" });
   }
+  const limit = paginationLimit(req.query.limit, 50, 100);
+  const afterSequence = sequenceCursor(req.query.after);
 
   const result = await pool.query(
     `
-    SELECT id, organization_id, ticket_id, author_id, body, created_at
-    FROM messages
-    WHERE ticket_id = $1 AND organization_id = $2
-    ORDER BY created_at ASC
+    SELECT
+      m.id,
+      m.organization_id,
+      m.ticket_id,
+      m.author_id,
+      m.body,
+      m.created_at,
+      te.id AS event_id,
+      te.sequence
+    FROM ticket_events te
+    JOIN messages m
+      ON m.id = te.message_id
+      AND m.organization_id = te.organization_id
+      AND m.ticket_id = te.ticket_id
+    WHERE te.ticket_id = $1
+      AND te.organization_id = $2
+      AND te.event_type = 'ticket.message.created'
+      AND te.sequence > $3
+    ORDER BY te.sequence ASC
+    LIMIT $4
     `,
-    [req.params.id, req.auth?.organizationId]
+    [req.params.id, req.auth?.organizationId, afterSequence, limit + 1]
   );
 
-  return res.status(200).json({ data: result.rows });
+  const rows = result.rows.slice(0, limit);
+  const last = rows[rows.length - 1];
+  return res.status(200).json({
+    data: rows,
+    page: {
+      limit,
+      hasMore: result.rows.length > limit,
+      nextCursor: last ? String(last.sequence) : null
+    }
+  });
 });
 
 router.post(
@@ -312,52 +396,114 @@ router.post(
   validate("params", ticketIdParamsSchema),
   validate("body", messageCreateSchema),
   async (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      return res.status(401).json({ error: "Unauthenticated" });
+    }
+    const auth = req.auth;
     const ticketId = String(req.params.id);
-    const ticket = await getTicketAccessContext(ticketId, req.auth?.organizationId as string);
-    if (!ticket) {
-      return res.status(404).json({ error: "Ticket not found" });
-    }
-    if (req.auth?.role === "customer" && ticket.requester_id !== req.auth.userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    if (req.auth?.role === "agent" && ticket.active_assignment_agent_id !== req.auth.userId) {
-      return res.status(403).json({ error: "Forbidden" });
+
+    const result = await withTenantTransaction(auth, async (client) => {
+      const ticket = await getTicketAccessContext(ticketId, auth.organizationId, client);
+      if (!ticket) {
+        return { status: 404, body: { error: "Ticket not found" } };
+      }
+      if (auth.role === "customer" && ticket.requester_id !== auth.userId) {
+        return { status: 403, body: { error: "Forbidden" } };
+      }
+      if (auth.role === "agent" && ticket.active_assignment_agent_id !== auth.userId) {
+        return { status: 403, body: { error: "Forbidden" } };
+      }
+
+      await client.query(
+        "SELECT id FROM tickets WHERE id = $1 AND organization_id = $2 FOR UPDATE",
+        [ticketId, auth.organizationId]
+      );
+
+      await client.query(
+        `
+        INSERT INTO ticket_event_counters(organization_id, ticket_id, next_sequence)
+        VALUES($1, $2, 1)
+        ON CONFLICT (organization_id, ticket_id) DO NOTHING
+        `,
+        [auth.organizationId, ticketId]
+      );
+      const counter = await client.query<{ sequence: number }>(
+        `
+        UPDATE ticket_event_counters
+        SET next_sequence = next_sequence + 1,
+            updated_at = now()
+        WHERE organization_id = $1 AND ticket_id = $2
+        RETURNING next_sequence - 1 AS sequence
+        `,
+        [auth.organizationId, ticketId]
+      );
+      const sequence = Number(counter.rows[0]?.sequence);
+
+      const messageResult = await client.query(
+        `
+        INSERT INTO messages(organization_id, ticket_id, author_id, body)
+        VALUES($1, $2, $3, $4)
+        RETURNING id, organization_id, ticket_id, author_id, body, created_at
+        `,
+        [auth.organizationId, ticketId, auth.userId, req.body.body]
+      );
+
+      const message = messageResult.rows[0] as {
+        id: string;
+        ticket_id: string;
+        organization_id: string;
+        author_id: string;
+        body: string;
+        created_at: string;
+      };
+
+      const event = await client.query<{ id: string; sequence: number }>(
+        `
+        INSERT INTO ticket_events(
+          organization_id, ticket_id, sequence, event_type, message_id, actor_user_id, payload
+        )
+        VALUES($1, $2, $3, 'ticket.message.created', $4, $5, $6::jsonb)
+        RETURNING id, sequence
+        `,
+        [
+          auth.organizationId,
+          ticketId,
+          sequence,
+          message.id,
+          auth.userId,
+          JSON.stringify({ messageId: message.id, body: message.body })
+        ]
+      );
+
+      const recipientUserId =
+        auth.role === "customer" ? ticket.active_assignment_agent_id : ticket.requester_id;
+
+      return {
+        status: 201,
+        body: { data: { ...message, event_id: event.rows[0].id, sequence: event.rows[0].sequence } },
+        event:
+          recipientUserId
+            ? {
+                type: "ticket.message.created" as const,
+                eventId: event.rows[0].id,
+                sequence: event.rows[0].sequence,
+                messageId: message.id,
+                ticketId: message.ticket_id,
+                organizationId: message.organization_id,
+                senderId: message.author_id,
+                recipientUserId,
+                body: message.body,
+                createdAt: message.created_at
+              }
+            : null
+      };
+    });
+
+    if ("event" in result && result.event) {
+      void publishMessageEvent(result.event);
     }
 
-    const result = await pool.query(
-      `
-      INSERT INTO messages(organization_id, ticket_id, author_id, body)
-      VALUES($1, $2, $3, $4)
-      RETURNING id, organization_id, ticket_id, author_id, body, created_at
-      `,
-      [req.auth?.organizationId, req.params.id, req.auth?.userId, req.body.body]
-    );
-
-    const message = result.rows[0] as {
-      id: string;
-      ticket_id: string;
-      organization_id: string;
-      author_id: string;
-      body: string;
-      created_at: string;
-    };
-
-    const recipientUserId =
-      req.auth?.role === "customer" ? ticket.active_assignment_agent_id : ticket.requester_id;
-    if (recipientUserId) {
-      void publishMessageEvent({
-        type: "ticket.message.created",
-        messageId: message.id,
-        ticketId: message.ticket_id,
-        organizationId: message.organization_id,
-        senderId: message.author_id,
-        recipientUserId,
-        body: message.body,
-        createdAt: message.created_at
-      });
-    }
-
-    return res.status(201).json({ data: result.rows[0] });
+    return res.status(result.status).json(result.body);
   }
 );
 
@@ -368,67 +514,85 @@ router.post(
   validate("params", ticketIdParamsSchema),
   validate("body", assignmentSchema),
   async (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      return res.status(401).json({ error: "Unauthenticated" });
+    }
+    const auth = req.auth;
+
     const targetAgentId =
-      req.auth?.role === "agent" ? req.auth.userId : req.body.agentId;
+      auth.role === "agent" ? auth.userId : req.body.agentId;
     if (!targetAgentId) {
       return res.status(400).json({ error: "agentId is required for admin assignment" });
     }
 
-    const targetAgent = await pool.query(
-      `
-      SELECT u.id
-      FROM users u
-      JOIN organization_memberships om ON om.user_id = u.id
-      JOIN roles r ON r.id = om.role_id
-      WHERE u.id = $1 AND u.organization_id = $2 AND r.key = 'agent'
-      LIMIT 1
-      `,
-      [targetAgentId, req.auth?.organizationId]
-    );
-
-    if (targetAgent.rowCount !== 1) {
-      return res.status(404).json({ error: "Agent not found in your organization" });
-    }
-
-    const ticket = await pool.query("SELECT id FROM tickets WHERE id = $1 AND organization_id = $2", [
-      req.params.id,
-      req.auth?.organizationId
-    ]);
-    if (ticket.rowCount !== 1) {
-      return res.status(404).json({ error: "Ticket not found" });
-    }
-
-    const activeAssignment = await pool.query(
-      `
-      SELECT id, agent_id FROM ticket_assignments
-      WHERE ticket_id = $1 AND organization_id = $2 AND released_at IS NULL
-      LIMIT 1
-      `,
-      [req.params.id, req.auth?.organizationId]
-    );
-    if (activeAssignment.rowCount !== 0) {
-      const current = activeAssignment.rows[0];
-      if (req.auth?.role === "admin") {
-        // Admin manual assignment can reassign by closing current assignment.
-        await pool.query(
-          "UPDATE ticket_assignments SET released_at = now() WHERE id = $1",
-          [current.id]
+    try {
+      const result = await withTenantTransaction(auth, async (client) => {
+        const targetAgent = await client.query(
+          `
+          SELECT u.id
+          FROM users u
+          JOIN organization_memberships om
+            ON om.user_id = u.id
+            AND om.organization_id = u.organization_id
+          JOIN roles r ON r.id = om.role_id
+          WHERE u.id = $1 AND u.organization_id = $2 AND r.key = 'agent'
+          LIMIT 1
+          `,
+          [targetAgentId, auth.organizationId]
         );
-      } else {
+
+        if (targetAgent.rowCount !== 1) {
+          return { status: 404, body: { error: "Agent not found in your organization" } };
+        }
+
+        const ticket = await client.query(
+          "SELECT id FROM tickets WHERE id = $1 AND organization_id = $2 FOR UPDATE",
+          [req.params.id, auth.organizationId]
+        );
+        if (ticket.rowCount !== 1) {
+          return { status: 404, body: { error: "Ticket not found" } };
+        }
+
+        const activeAssignment = await client.query(
+          `
+          SELECT id, agent_id FROM ticket_assignments
+          WHERE ticket_id = $1 AND organization_id = $2 AND released_at IS NULL
+          LIMIT 1
+          `,
+          [req.params.id, auth.organizationId]
+        );
+        if (activeAssignment.rowCount !== 0) {
+          const current = activeAssignment.rows[0];
+          if (auth.role === "admin") {
+            await client.query(
+              "UPDATE ticket_assignments SET released_at = now() WHERE id = $1 AND organization_id = $2",
+              [current.id, auth.organizationId]
+            );
+          } else {
+            return { status: 409, body: { error: "Ticket already assigned" } };
+          }
+        }
+
+        const assignment = await client.query(
+          `
+          INSERT INTO ticket_assignments(organization_id, ticket_id, agent_id)
+          VALUES($1, $2, $3)
+          RETURNING id, organization_id, ticket_id, agent_id, assigned_at, released_at
+          `,
+          [auth.organizationId, req.params.id, targetAgentId]
+        );
+
+        return { status: 201, body: { data: assignment.rows[0] } };
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (error) {
+      const pgError = error as { code?: string };
+      if (pgError.code === "23505") {
         return res.status(409).json({ error: "Ticket already assigned" });
       }
+      throw error;
     }
-
-    const result = await pool.query(
-      `
-      INSERT INTO ticket_assignments(organization_id, ticket_id, agent_id)
-      VALUES($1, $2, $3)
-      RETURNING id, organization_id, ticket_id, agent_id, assigned_at, released_at
-      `,
-      [req.auth?.organizationId, req.params.id, targetAgentId]
-    );
-
-    return res.status(201).json({ data: result.rows[0] });
   }
 );
 
@@ -438,30 +602,46 @@ router.delete(
   allowRoles("admin", "agent"),
   validate("params", ticketIdParamsSchema),
   async (req: AuthedRequest, res) => {
-    const query =
-      req.auth?.role === "agent"
-        ? `
-      UPDATE ticket_assignments
-      SET released_at = now()
-      WHERE ticket_id = $1
-        AND organization_id = $2
-        AND released_at IS NULL
-        AND agent_id = $3
-      RETURNING id
-      `
-        : `
-      UPDATE ticket_assignments
-      SET released_at = now()
-      WHERE ticket_id = $1
-        AND organization_id = $2
-        AND released_at IS NULL
-      RETURNING id
-      `;
-    const values =
-      req.auth?.role === "agent"
-        ? [req.params.id, req.auth?.organizationId, req.auth.userId]
-        : [req.params.id, req.auth?.organizationId];
-    const result = await pool.query(query, values);
+    if (!req.auth) {
+      return res.status(401).json({ error: "Unauthenticated" });
+    }
+    const auth = req.auth;
+
+    const result = await withTenantTransaction(auth, async (client) => {
+      const ticket = await client.query(
+        "SELECT id FROM tickets WHERE id = $1 AND organization_id = $2 FOR UPDATE",
+        [req.params.id, auth.organizationId]
+      );
+      if (ticket.rowCount !== 1) {
+        return { rowCount: 0 };
+      }
+
+      const query =
+        auth.role === "agent"
+          ? `
+        UPDATE ticket_assignments
+        SET released_at = now()
+        WHERE ticket_id = $1
+          AND organization_id = $2
+          AND released_at IS NULL
+          AND agent_id = $3
+        RETURNING id
+        `
+          : `
+        UPDATE ticket_assignments
+        SET released_at = now()
+        WHERE ticket_id = $1
+          AND organization_id = $2
+          AND released_at IS NULL
+        RETURNING id
+        `;
+      const values =
+        auth.role === "agent"
+          ? [req.params.id, auth.organizationId, auth.userId]
+          : [req.params.id, auth.organizationId];
+
+      return client.query(query, values);
+    });
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: "Active assignment not found" });

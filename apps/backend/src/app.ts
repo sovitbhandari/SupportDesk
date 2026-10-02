@@ -15,10 +15,13 @@ import { ExpressAdapter } from "@bull-board/express";
 import { ticketNotificationsQueue } from "./lib/queues.js";
 import { allowRoles } from "./middleware/rbac.js";
 import { requireAuth } from "./middleware/auth.js";
+import { requestContext } from "./middleware/requestContext.js";
 import { handleStream } from "./routes/streamRoutes.js";
 import { config } from "./config.js";
-import { pool } from "./lib/db.js";
+import { appPool, pool } from "./lib/db.js";
 import { redis } from "./lib/redis.js";
+import { snapshotRequestMetrics } from "./lib/metrics.js";
+import { safeError } from "./lib/logger.js";
 
 const app = express();
 const serverAdapter = new ExpressAdapter();
@@ -37,15 +40,81 @@ app.use(
 );
 app.use(cookieParser());
 app.use(express.json());
+app.use(requestContext);
 
 app.get("/health", async (_req, res) => {
+  return res.status(200).json({ status: "ok" });
+});
+
+app.get("/readyz", async (_req, res) => {
+  const dependencies: Record<string, "ok" | "error"> = {
+    ownerDb: "error",
+    appDb: "error",
+    redis: "error"
+  };
+  const errors: Record<string, string> = {};
+
   try {
     await pool.query("SELECT 1");
-    await redis.ping();
-    return res.status(200).json({ status: "ok", db: "ok", redis: "ok" });
-  } catch {
-    return res.status(503).json({ status: "degraded", db: "error", redis: "error" });
+    dependencies.ownerDb = "ok";
+  } catch (error) {
+    errors.ownerDb = safeError(error);
   }
+
+  try {
+    await appPool.query("SELECT 1");
+    dependencies.appDb = "ok";
+  } catch (error) {
+    errors.appDb = safeError(error);
+  }
+
+  try {
+    await redis.ping();
+    dependencies.redis = "ok";
+  } catch (error) {
+    errors.redis = safeError(error);
+  }
+
+  const ready = Object.values(dependencies).every((status) => status === "ok");
+  return res.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "degraded",
+    dependencies,
+    errors
+  });
+});
+
+app.get("/metrics", async (_req, res) => {
+  const metrics: Record<string, unknown> = snapshotRequestMetrics();
+  try {
+    metrics.queue = await ticketNotificationsQueue.getJobCounts(
+      "waiting",
+      "active",
+      "delayed",
+      "failed"
+    );
+  } catch (error) {
+    metrics.queue = { error: safeError(error) };
+  }
+
+  try {
+    const outbox = await pool.query(
+      `
+      SELECT
+        COUNT(*) FILTER (WHERE status IN ('pending', 'failed'))::int AS backlog,
+        COALESCE(
+          EXTRACT(EPOCH FROM (now() - MIN(created_at) FILTER (WHERE status IN ('pending', 'failed')))),
+          0
+        )::int AS oldest_age_seconds,
+        COUNT(*) FILTER (WHERE status = 'failed')::int AS failed
+      FROM outbox_events
+      `
+    );
+    metrics.outbox = outbox.rows[0];
+  } catch (error) {
+    metrics.outbox = { error: safeError(error) };
+  }
+
+  return res.status(200).json(metrics);
 });
 
 app.use("/api/auth", authRoutes);
@@ -59,7 +128,11 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin/queues", requireAuth, allowRoles("admin"), serverAdapter.getRouter());
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  return res.status(500).json({ error: "InternalServerError", message: err.message });
+  return res.status(500).json({
+    error: "InternalServerError",
+    message: err.message,
+    requestId: res.locals.requestId
+  });
 });
 
 app.use((_req, res) => {

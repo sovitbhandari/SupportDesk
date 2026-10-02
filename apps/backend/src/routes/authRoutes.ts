@@ -134,7 +134,7 @@ router.post("/login", validate("body", loginSchema), async (req, res) => {
     `
     SELECT u.id, u.organization_id, u.email, r.key as role, u.password_hash
     FROM users u
-    JOIN organization_memberships om ON om.user_id = u.id
+    JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
     JOIN roles r ON r.id = om.role_id
     WHERE u.email = $1 AND u.is_active = true
     LIMIT 1
@@ -217,7 +217,7 @@ router.post("/refresh", async (req, res) => {
       `
       SELECT u.id, u.organization_id, u.email, r.key as role
       FROM users u
-      JOIN organization_memberships om ON om.user_id = u.id
+      JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = u.organization_id
       JOIN roles r ON r.id = om.role_id
       WHERE u.id = $1 AND u.is_active = true
       LIMIT 1

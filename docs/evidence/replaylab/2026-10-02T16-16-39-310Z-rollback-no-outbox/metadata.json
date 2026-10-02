@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-02T16:16:39.318Z",
+  "runId": "2026-10-02T16-16-39-310Z-rollback-no-outbox",
+  "scenario": {
+    "name": "rollback-no-outbox",
+    "version": 1,
+    "seed": 4242,
+    "dataset": {
+      "synthetic": true,
+      "organizationSlug": "acme",
+      "customerEmail": "alice.customer@acme.com"
+    },
+    "operations": [
+      {
+        "id": "op-rollback",
+        "type": "create_ticket_then_rollback",
+        "idempotencyKey": "replaylab-rollback-001"
+      }
+    ],
+    "faultSchedule": [
+      {
+        "hook": "after_db_write_before_commit",
+        "operationId": "op-rollback",
+        "action": "rollback"
+      }
+    ],
+    "timeoutMs": 10000,
+    "assertions": [
+      "no_outbox_for_rollback",
+      "no_committed_ticket_for_rollback"
+    ]
+  },
+  "scenarioPath": "/Users/sovitbhandari/Documents/SupportDesk/replaylab/scenarios/rollback-no-outbox.json",
+  "scenarioChecksum": "db48102aacf66cf7d93b08ce28b25f1159e79c83514ad192f8f99b64529f3c09",
+  "commit": "43bd67e3896225efd92a1721766c9f84e89e6e34",
+  "versions": {
+    "node": "v22.16.0"
+  },
+  "host": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "arch": "arm64"
+  },
+  "artifacts": {
+    "journal": "journal.jsonl",
+    "report": "report.json",
+    "reportMarkdown": "report.md"
+  },
+  "errors": []
+}

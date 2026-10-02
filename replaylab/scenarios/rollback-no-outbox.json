@@ -1,0 +1,29 @@
+{
+  "name": "rollback-no-outbox",
+  "version": 1,
+  "seed": 4242,
+  "dataset": {
+    "synthetic": true,
+    "organizationSlug": "acme",
+    "customerEmail": "alice.customer@acme.com"
+  },
+  "operations": [
+    {
+      "id": "op-rollback",
+      "type": "create_ticket_then_rollback",
+      "idempotencyKey": "replaylab-rollback-001"
+    }
+  ],
+  "faultSchedule": [
+    {
+      "hook": "after_db_write_before_commit",
+      "operationId": "op-rollback",
+      "action": "rollback"
+    }
+  ],
+  "timeoutMs": 10000,
+  "assertions": [
+    "no_outbox_for_rollback",
+    "no_committed_ticket_for_rollback"
+  ]
+}

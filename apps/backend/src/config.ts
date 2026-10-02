@@ -15,8 +15,11 @@ const resolvedCorsOrigins = parseCorsOrigins();
 
 export const config = {
   port: Number(process.env.PORT ?? 4000),
-  databaseUrl: process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/supportdesk",
+  databaseUrl: process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:55432/supportdesk",
+  appDatabaseUrl:
+    process.env.APP_DATABASE_URL ?? "postgresql://app_user:app_user_password@localhost:55432/supportdesk",
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+  shutdownGraceMs: Number(process.env.SHUTDOWN_GRACE_MS ?? 10000),
   /** Primary origin (first in list) — used where a single string is needed */
   corsOrigin: resolvedCorsOrigins[0],
   /** All allowed browser origins in dev (localhost + 127.0.0.1, or comma-separated in CORS_ORIGIN) */

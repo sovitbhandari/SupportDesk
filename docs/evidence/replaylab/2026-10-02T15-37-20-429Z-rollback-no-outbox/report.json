@@ -1,0 +1,10 @@
+{
+  "status": "INFRASTRUCTURE_FAILURE",
+  "violations": [],
+  "expectedConflicts": [],
+  "infrastructureFailures": [
+    {
+      "detail": "AggregateError: EPERM"
+    }
+  ]
+}
